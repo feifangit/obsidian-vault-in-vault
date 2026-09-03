@@ -1,0 +1,41 @@
+.vault-in-vault-age-view {
+  height: 100%;
+  overflow: auto;
+  padding: 0;
+}
+
+.vault-in-vault-state {
+  margin: 15vh auto 0;
+  max-width: 34rem;
+  padding: var(--size-4-4);
+  text-align: center;
+}
+
+.vault-in-vault-modal-buttons {
+  display: flex;
+  gap: var(--size-4-2);
+  justify-content: flex-end;
+  margin-top: var(--size-4-4);
+}
+
+.vault-in-vault-modal-error {
+  color: var(--text-error);
+  min-height: var(--line-height-normal);
+}
+
+.vault-in-vault-extension-summary {
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+}
+
+.vault-in-vault-embedded-image-control {
+  align-items: center;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  display: flex;
+  gap: var(--size-4-2);
+  justify-content: space-between;
+  margin: var(--size-4-2) 0;
+  padding: var(--size-4-2) var(--size-4-3);
+}

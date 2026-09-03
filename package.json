@@ -1,0 +1,27 @@
+{
+  "name": "vault-in-vault",
+  "version": "0.5.0",
+  "description": "Encrypt selected vault files and lock plaintext after tabs close or on demand.",
+  "main": "main.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "validate": "node scripts/validate-metadata.mjs",
+    "check": "npm run validate && npm run test && npm run build",
+    "install:vault": "node scripts/install-local.mjs",
+    "version": "node scripts/version-bump.mjs && git add manifest.json versions.json"
+  },
+  "dependencies": {
+    "age-encryption": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "esbuild": "0.27.2",
+    "obsidian": "latest",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  }
+}

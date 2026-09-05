@@ -2,7 +2,7 @@
 
 Obsidian normally stores notes and attachments as ordinary files. That makes a vault portable and easy to back up, but it also means that anyone who can browse a copied or synchronized vault can read those files directly.
 
-Vault in Vault lets you lock private notes and images with a password without moving them out of your vault. Locked files stay in the same folders, but their contents are encrypted. When you need one, click it, enter the password, and continue using Obsidian's normal editor or image preview. When its last tab closes, choose whether to lock that file again, lock every exposed file, or leave it unlocked for now.
+Vault in Vault lets you lock private notes and images with a password without moving them out of your vault. Locked files stay in the same folders, but their contents are encrypted. When you need one, click it, enter the password, and continue using Obsidian's normal editor or image preview. When the last protected plaintext tab closes, choose whether to lock that file again, lock every exposed file, or leave it unlocked for now.
 
 This is useful for journals, personal records, work notes, and images that should not remain readable in backups or synchronized vault copies. File and folder names remain visible; Vault in Vault protects file contents, not the shape of the vault.
 
@@ -33,7 +33,7 @@ After decryption, the note opens in Obsidian's normal editor. Markdown features,
 
 ### Decide what to lock when a tab closes
 
-When the last tab for a protected plaintext file closes, choose whether to encrypt that file, encrypt every matching plaintext file, or leave the files as they are.
+When the last protected plaintext tab closes, choose whether to encrypt that file, encrypt every matching plaintext file, or leave the files as they are. Closing one protected tab while another remains open does not interrupt you.
 
 ![Prompt to encrypt one file or all matching files after closing a tab](docs/images/encrypt-on-close.png)
 
@@ -47,10 +47,10 @@ The settings page shows the file extensions covered by vault-wide locking. Setti
 
 - Opens password-encrypted `.age` files from the file explorer.
 - Decrypts Markdown and images in place so native editing, previews, links, search, and other plugins continue to work.
-- Re-encrypts the current file or every matching plaintext file after its last tab closes.
+- Re-encrypts the final closed file or every matching plaintext file after the last protected plaintext tab closes.
 - Provides an **Encrypt and lock vault now** command and ribbon action.
 - Caches a password in memory only when the user chooses to remember it for the current session.
-- Uses configurable protected extensions. The defaults are `.md`, `.avif`, `.bmp`, `.gif`, `.jpeg`, `.jpg`, `.png`, `.svg`, and `.webp`.
+- Uses configurable protected extensions and vault-relative file/folder exclusions. The defaults are `.md`, `.avif`, `.bmp`, `.gif`, `.jpeg`, `.jpg`, `.png`, `.svg`, and `.webp`.
 - Preserves subfolders and excludes the vault configuration directory and files already ending in `.age`.
 - Verifies every new plaintext or ciphertext copy before deleting its source.
 
@@ -65,13 +65,15 @@ notes/private.md.age
     -> open notes/private.md in the native editor
 ```
 
-When the last tab displaying a protected plaintext file closes, Vault in Vault offers three choices:
+When the last open protected plaintext tab closes, Vault in Vault offers three choices and a collapsed list of all matching plaintext files. If `.ageconfig` excludes paths, a second collapsed list shows which configured files and folders will be skipped:
 
 - **Encrypt this file**
 - **Encrypt all (N)**
 - **Leave plaintext**
 
 The tab closes first, allowing Obsidian to finish saving it. Encryption then runs while the app remains open. If the password prompt is cancelled, a file changes during encryption, or verification fails, the plaintext source is retained.
+
+Choosing **Encrypt all** or running **Encrypt and lock vault now** deliberately forgets the cached session password after encryption. Opening another encrypted file then asks for the password again. Encrypting only the closed file keeps the current session password cached.
 
 The plugin does not attempt interactive encryption from an application quit hook. Obsidian does not reliably wait for that asynchronous work. Before quitting, close protected tabs or run **Encrypt and lock vault now**.
 
@@ -87,7 +89,7 @@ Image links in Markdown retain their ordinary names and do not need an `.age` su
 
 ## Password behavior
 
-- Existing `.age` files are used to verify the supplied password before a vault-wide encryption operation.
+- Existing non-excluded `.age` files are used to verify the supplied password before a vault-wide encryption operation.
 - If no `.age` file exists, the password must be entered twice.
 - A remembered password is held only in JavaScript memory for the current plugin session.
 - Passwords are never written to `data.json`.
@@ -95,7 +97,7 @@ Image links in Markdown retain their ordinary names and do not need an `.age` su
 
 ## Settings
 
-Open **Settings -> Vault in Vault** to inspect the protected extensions and embedded-image behavior. Editing these settings is locked until an existing vault password is verified. The UI lock prevents accidental changes; it is not a security boundary.
+Open **Settings -> Vault in Vault** to inspect the protected extensions, excluded paths, and embedded-image behavior. Editing these settings is locked until an existing vault password is verified. The UI lock prevents accidental changes; it is not a security boundary.
 
 Settings are stored per vault in:
 
@@ -104,6 +106,31 @@ Settings are stored per vault in:
 ```
 
 The actual configuration directory may be customized by Obsidian. Vault in Vault obtains it from the Obsidian API rather than assuming `.obsidian` internally.
+
+### Shared `.ageconfig` policy
+
+To share one policy with the companion Go CLI, create `.ageconfig` in the vault root:
+
+```json
+{
+  "extensions": [".md", ".png", ".jpg"],
+  "exclude": ["Public", "Templates/daily.md", "attachments/shared"]
+}
+```
+
+`exclude` entries are vault-relative exact file paths or directory paths. A directory excludes its entire subtree. Paths are case-sensitive and do not support globs; absolute paths and `..` are rejected. Excluding a plaintext name also excludes its corresponding `.age` file from CLI decrypt and password-change scans.
+
+`extensions` is optional. A policy containing only exclusions uses the built-in Markdown and common-image defaults:
+
+```json
+{
+  "exclude": ["Public", "Templates"]
+}
+```
+
+An explicitly supplied `extensions` array must not be empty.
+
+When `.ageconfig` exists, it takes precedence over the extension and exclusion lists in `data.json`. The plugin displays those shared fields as read-only; use **Reload .ageconfig** after editing the file. `data.json` remains the fallback when `.ageconfig` is absent. An invalid `.ageconfig` blocks encryption instead of silently falling back to a broader policy. Neither file stores the password.
 
 ## Security model
 
@@ -147,7 +174,7 @@ npm test         # run the test suite
 npm run check    # test, type-check, and create a production bundle
 ```
 
-Tests cover age round trips, a Go-generated age fixture, wrong passwords, Unicode Markdown, randomized ciphertext, extension configuration, configuration-directory exclusion, image references, and tab-close tracking.
+Tests cover age round trips, a Go-generated age fixture, wrong passwords, Unicode Markdown, randomized ciphertext, shared extension/exclusion configuration, configuration-directory exclusion, image references, and tab-close tracking.
 
 ## Release process
 

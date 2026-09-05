@@ -28,6 +28,29 @@
   font-family: var(--font-monospace);
 }
 
+.vault-in-vault-file-list {
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2) var(--size-4-3);
+}
+
+.vault-in-vault-file-list + .vault-in-vault-file-list {
+  margin-top: var(--size-4-2);
+}
+
+.vault-in-vault-file-list > summary {
+  cursor: pointer;
+  font-weight: var(--font-semibold);
+}
+
+.vault-in-vault-file-list > ul {
+  font-family: var(--font-monospace);
+  margin-bottom: 0;
+  max-height: 14rem;
+  overflow: auto;
+  padding-inline-start: var(--size-4-6);
+}
+
 .vault-in-vault-embedded-image-control {
   align-items: center;
   background: var(--background-secondary);

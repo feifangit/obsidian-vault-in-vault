@@ -6,6 +6,8 @@ export interface ProtectionSummary {
   fileCount: number;
   totalBytes: number;
   countsByExtension: ReadonlyMap<string, number>;
+  filePaths: readonly string[];
+  ageConfigExcludedPaths: readonly string[];
 }
 
 export class ProtectFilesModal extends Modal {
@@ -28,6 +30,22 @@ export class ProtectFilesModal extends Modal {
     this.titleEl.setText("Encrypt and lock vault?");
     contentEl.createEl("p", {
       text: `${summary.fileCount} matching plaintext ${summary.fileCount === 1 ? "file" : "files"} (${formatBytes(summary.totalBytes)}) will be encrypted.`
+    });
+    renderCollapsedPathList(
+      contentEl,
+      `Show ${summary.filePaths.length} ${summary.filePaths.length === 1 ? "file" : "files"} to encrypt`,
+      summary.filePaths
+    );
+    if (summary.ageConfigExcludedPaths.length > 0) {
+      renderCollapsedPathList(
+        contentEl,
+        `Show ${summary.ageConfigExcludedPaths.length} ${summary.ageConfigExcludedPaths.length === 1 ? "path" : "paths"} skipped by .ageconfig`,
+        summary.ageConfigExcludedPaths
+      );
+    }
+    contentEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "Locking the vault forgets the password cached for this session."
     });
     contentEl.createEl("p", {
       cls: "vault-in-vault-extension-summary",
@@ -61,6 +79,19 @@ export class ProtectFilesModal extends Modal {
     this.resolveDecision(decision);
     this.close();
   }
+}
+
+function renderCollapsedPathList(
+  container: HTMLElement,
+  label: string,
+  paths: readonly string[]
+): void {
+  const details = container.createEl("details", {
+    cls: "vault-in-vault-file-list"
+  });
+  details.createEl("summary", { text: label });
+  const list = details.createEl("ul");
+  for (const path of paths) list.createEl("li", { text: path });
 }
 
 function formatBytes(bytes: number): string {

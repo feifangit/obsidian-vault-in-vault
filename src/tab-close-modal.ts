@@ -4,7 +4,8 @@ export type ClosedFileProtectionDecision = "current" | "all" | "leave";
 
 export interface ClosedFileProtectionSummary {
   filePath: string;
-  allFileCount: number;
+  allFilePaths: readonly string[];
+  ageConfigExcludedPaths: readonly string[];
 }
 
 export class ClosedFileProtectionModal extends Modal {
@@ -27,20 +28,37 @@ export class ClosedFileProtectionModal extends Modal {
 
   override onOpen(): void {
     const { contentEl, summary } = this;
+    const allFileCount = summary.allFilePaths.length;
     this.titleEl.setText("Encrypt closed file?");
     contentEl.createEl("p", {
       text: `${summary.filePath} was closed and is still plaintext.`
     });
     contentEl.createEl("p", {
       cls: "vault-in-vault-extension-summary",
-      text: `${summary.allFileCount} matching plaintext ${summary.allFileCount === 1 ? "file is" : "files are"} currently in this vault.`
+      text: `${allFileCount} matching plaintext ${allFileCount === 1 ? "file is" : "files are"} currently in this vault.`
+    });
+    renderCollapsedPathList(
+      contentEl,
+      `Show ${allFileCount} ${allFileCount === 1 ? "file" : "files"} to encrypt`,
+      summary.allFilePaths
+    );
+    if (summary.ageConfigExcludedPaths.length > 0) {
+      renderCollapsedPathList(
+        contentEl,
+        `Show ${summary.ageConfigExcludedPaths.length} ${summary.ageConfigExcludedPaths.length === 1 ? "path" : "paths"} skipped by .ageconfig`,
+        summary.ageConfigExcludedPaths
+      );
+    }
+    contentEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "Encrypt all also locks the vault and forgets the password cached for this session."
     });
 
     const buttons = contentEl.createDiv({ cls: "vault-in-vault-modal-buttons" });
     buttons.createEl("button", { text: "Leave plaintext" })
       .addEventListener("click", () => this.finish("leave"));
     buttons.createEl("button", {
-      text: `Encrypt all (${summary.allFileCount})`
+      text: `Encrypt all (${allFileCount})`
     }).addEventListener("click", () => this.finish("all"));
     const current = buttons.createEl("button", {
       text: "Encrypt this file",
@@ -64,4 +82,17 @@ export class ClosedFileProtectionModal extends Modal {
     this.resolveDecision(decision);
     this.close();
   }
+}
+
+function renderCollapsedPathList(
+  container: HTMLElement,
+  label: string,
+  paths: readonly string[]
+): void {
+  const details = container.createEl("details", {
+    cls: "vault-in-vault-file-list"
+  });
+  details.createEl("summary", { text: label });
+  const list = details.createEl("ul");
+  for (const path of paths) list.createEl("li", { text: path });
 }

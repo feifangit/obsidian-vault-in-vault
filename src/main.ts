@@ -9,12 +9,14 @@ import {
 } from "obsidian";
 
 import { AGE_VIEW_TYPE, EncryptedAgeView } from "./age-view";
+import { AGE_CONFIG_PATH, AgeConfigPolicy, normalizeExcludeList, parseAgeConfig } from "./age-config";
 import { decryptWithPassphrase, encryptWithPassphrase } from "./crypto";
 import { EncryptionPasswordModal } from "./encryption-password-modal";
 import {
   classifyAgePath,
   DEFAULT_PROTECTED_EXTENSIONS,
   extractEmbeddedImageLinks,
+  isExcludedVaultPath,
   isKnownImagePath,
   isProtectedPlainPath,
   normalizeExtensionList
@@ -23,15 +25,17 @@ import { PasswordModal } from "./password-modal";
 import { ProtectFilesModal, ProtectionSummary } from "./protect-files-modal";
 import { VaultInVaultSettingTab } from "./settings";
 import { ClosedFileProtectionModal } from "./tab-close-modal";
-import { findClosedFilePaths } from "./tab-close-tracker";
+import { findLastProtectedClosedPath } from "./tab-close-tracker";
 
 export interface VaultInVaultSettings {
   extensions: string[];
+  excludedPaths: string[];
   autoDecryptEmbeddedImages: boolean;
 }
 
 const DEFAULT_SETTINGS: VaultInVaultSettings = {
   extensions: [...DEFAULT_PROTECTED_EXTENSIONS],
+  excludedPaths: [],
   autoDecryptEmbeddedImages: true
 };
 
@@ -46,6 +50,8 @@ export default class VaultInVaultPlugin extends Plugin {
   override settings: VaultInVaultSettings = { ...DEFAULT_SETTINGS };
   private sessionPassword: string | null = null;
   private configurationUnlocked = false;
+  private sharedAgeConfig: AgeConfigPolicy | null = null;
+  private sharedAgeConfigError: string | null = null;
   private readonly decryptJobs = new Map<string, Promise<TFile>>();
   private openLeafFiles = new Map<WorkspaceLeaf, string>();
   private leafSnapshotInitialized = false;
@@ -54,6 +60,10 @@ export default class VaultInVaultPlugin extends Plugin {
 
   override async onload(): Promise<void> {
     await this.loadSettings();
+
+    if (this.sharedAgeConfigError !== null) {
+      new Notice(`Vault in Vault: invalid ${AGE_CONFIG_PATH}: ${this.sharedAgeConfigError}`);
+    }
 
     this.registerView(AGE_VIEW_TYPE, (leaf) => new EncryptedAgeView(leaf, this));
     this.registerExtensions(["age"], AGE_VIEW_TYPE);
@@ -130,16 +140,67 @@ export default class VaultInVaultPlugin extends Plugin {
       new TextDecoder("utf-8", { fatal: true }).decode(plaintext);
     }
 
-    const plaintextFile = await this.publishPlaintext(file, plaintext);
+    // Keep the encrypted source until the replacement is open in this same leaf.
+    // Deleting the file backing the active custom view first makes Obsidian restore
+    // the previous history entry and can win a race against leaf.openFile().
+    const plaintextFile = await this.publishPlaintext(file, plaintext, false);
     if (type.kind === "markdown" && this.settings.autoDecryptEmbeddedImages) {
       const markdown = new TextDecoder().decode(plaintext);
       await this.decryptEmbeddedImages(markdown, plaintextFile.path, password);
     }
-    await leaf.openFile(plaintextFile);
+    await leaf.openFile(plaintextFile, { active: true });
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+    const encryptedSource = this.app.vault.getFileByPath(file.path);
+    if (encryptedSource !== null) await this.app.vault.delete(encryptedSource);
   }
 
   isConfigurationUnlocked(): boolean {
     return this.configurationUnlocked;
+  }
+
+  getProtectedExtensions(): readonly string[] {
+    if (this.sharedAgeConfigError !== null) return [];
+    return this.sharedAgeConfig?.extensions ?? this.settings.extensions;
+  }
+
+  getExcludedPaths(): readonly string[] {
+    if (this.sharedAgeConfigError !== null) return [];
+    return this.sharedAgeConfig?.exclude ?? this.settings.excludedPaths;
+  }
+
+  getProtectionPolicySource(): string {
+    if (this.sharedAgeConfigError !== null) {
+      return `${AGE_CONFIG_PATH} is invalid: ${this.sharedAgeConfigError}`;
+    }
+    return this.sharedAgeConfig === null
+      ? "Plugin settings (data.json)"
+      : `${AGE_CONFIG_PATH} in the vault root`;
+  }
+
+  isSharedAgeConfigActive(): boolean {
+    return this.sharedAgeConfig !== null;
+  }
+
+  async reloadAgeConfig(showNotice = true): Promise<void> {
+    this.sharedAgeConfig = null;
+    this.sharedAgeConfigError = null;
+    try {
+      if (!(await this.app.vault.adapter.exists(AGE_CONFIG_PATH))) {
+        if (showNotice) new Notice(`${AGE_CONFIG_PATH} not found; using plugin settings.`);
+        return;
+      }
+      const contents = await this.app.vault.adapter.read(AGE_CONFIG_PATH);
+      if (new TextEncoder().encode(contents).byteLength > 64 * 1024) {
+        throw new Error("the file is larger than 64 KiB");
+      }
+      this.sharedAgeConfig = parseAgeConfig(contents);
+      if (showNotice) new Notice(`Reloaded protection policy from ${AGE_CONFIG_PATH}.`);
+    } catch (error) {
+      this.sharedAgeConfigError = error instanceof Error ? error.message : String(error);
+      if (showNotice) {
+        new Notice(`Vault in Vault: invalid ${AGE_CONFIG_PATH}: ${this.sharedAgeConfigError}`);
+      }
+    }
   }
 
   async unlockConfiguration(): Promise<boolean> {
@@ -173,8 +234,15 @@ export default class VaultInVaultPlugin extends Plugin {
   private async loadSettings(): Promise<void> {
     const data = (await this.loadData()) as Partial<VaultInVaultSettings> | null;
     const extensions = normalizeExtensionList(data?.extensions ?? DEFAULT_SETTINGS.extensions);
+    let excludedPaths: string[] = [];
+    try {
+      excludedPaths = normalizeExcludeList(data?.excludedPaths ?? []);
+    } catch {
+      excludedPaths = [];
+    }
     this.settings = {
       extensions: extensions.length > 0 ? extensions : [...DEFAULT_SETTINGS.extensions],
+      excludedPaths,
       autoDecryptEmbeddedImages:
         typeof data?.autoDecryptEmbeddedImages === "boolean"
           ? data.autoDecryptEmbeddedImages
@@ -183,6 +251,14 @@ export default class VaultInVaultPlugin extends Plugin {
     // Persist the normalized schema and remove obsolete tracking-only fields
     // from pre-0.3 plugin data. Passwords are never part of this object.
     await this.saveSettings();
+    await this.reloadAgeConfig(false);
+  }
+
+  private async requireValidProtectionPolicy(): Promise<void> {
+    await this.reloadAgeConfig(false);
+    if (this.sharedAgeConfigError !== null) {
+      throw new Error(`Invalid ${AGE_CONFIG_PATH}: ${this.sharedAgeConfigError}`);
+    }
   }
 
   private async decryptForFile(
@@ -214,6 +290,7 @@ export default class VaultInVaultPlugin extends Plugin {
   }
 
   private async encryptAndLock(alreadyConfirmed = false): Promise<void> {
+    await this.requireValidProtectionPolicy();
     let files = this.getProtectedPlaintextFiles();
     if (files.length === 0) {
       this.clearPassword();
@@ -229,6 +306,7 @@ export default class VaultInVaultPlugin extends Plugin {
     await this.saveOpenMarkdownViews();
     // The user may have edited or created a file while the modal was open.
     // Rescan after flushing every native Markdown editor.
+    await this.requireValidProtectionPolicy();
     files = this.getProtectedPlaintextFiles();
     if (files.length === 0) {
       this.clearPassword();
@@ -269,9 +347,18 @@ export default class VaultInVaultPlugin extends Plugin {
       return;
     }
 
-    const closedPaths = findClosedFilePaths(this.openLeafFiles, current);
+    const closedPath = findLastProtectedClosedPath(
+      this.openLeafFiles,
+      current,
+      (path) => isProtectedPlainPath(
+        path,
+        this.getProtectedExtensions(),
+        this.app.vault.configDir,
+        this.getExcludedPaths()
+      )
+    );
     this.openLeafFiles = current;
-    for (const path of closedPaths) this.enqueueClosedFilePrompt(path);
+    if (closedPath !== null) this.enqueueClosedFilePrompt(closedPath);
   }
 
   private readOpenLeafFiles(): Map<WorkspaceLeaf, string> {
@@ -296,17 +383,24 @@ export default class VaultInVaultPlugin extends Plugin {
   private async handleClosedFile(path: string): Promise<void> {
     // Yield once so the view can finish its normal save before encryption reads it.
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    await this.requireValidProtectionPolicy();
     const file = this.app.vault.getFileByPath(path);
     if (
       file === null ||
-      !isProtectedPlainPath(file.path, this.settings.extensions, this.app.vault.configDir)
+      !isProtectedPlainPath(
+        file.path,
+        this.getProtectedExtensions(),
+        this.app.vault.configDir,
+        this.getExcludedPaths()
+      )
     ) return;
     if (this.isPathOpenInAnyLeaf(path)) return;
 
     const allFiles = this.getProtectedPlaintextFiles();
     const decision = await ClosedFileProtectionModal.ask(this.app, {
       filePath: path,
-      allFileCount: allFiles.length
+      allFilePaths: allFiles.map((candidate) => candidate.path),
+      ageConfigExcludedPaths: this.getAgeConfigExcludedPaths()
     });
     if (decision === "leave") return;
     if (decision === "all") {
@@ -314,13 +408,15 @@ export default class VaultInVaultPlugin extends Plugin {
       return;
     }
 
+    await this.requireValidProtectionPolicy();
     const currentFile = this.app.vault.getFileByPath(path);
     if (
       currentFile === null ||
       !isProtectedPlainPath(
         currentFile.path,
-        this.settings.extensions,
-        this.app.vault.configDir
+        this.getProtectedExtensions(),
+        this.app.vault.configDir,
+        this.getExcludedPaths()
       ) ||
       this.isPathOpenInAnyLeaf(path)
     ) {
@@ -357,7 +453,12 @@ export default class VaultInVaultPlugin extends Plugin {
     return this.app.vault
       .getFiles()
       .filter((file) =>
-        isProtectedPlainPath(file.path, this.settings.extensions, this.app.vault.configDir)
+        isProtectedPlainPath(
+          file.path,
+          this.getProtectedExtensions(),
+          this.app.vault.configDir,
+          this.getExcludedPaths()
+        )
       )
       .sort((left, right) => left.path.localeCompare(right.path));
   }
@@ -370,7 +471,17 @@ export default class VaultInVaultPlugin extends Plugin {
       const extension = file.extension.toLowerCase();
       countsByExtension.set(extension, (countsByExtension.get(extension) ?? 0) + 1);
     }
-    return { fileCount: files.length, totalBytes, countsByExtension };
+    return {
+      fileCount: files.length,
+      totalBytes,
+      countsByExtension,
+      filePaths: files.map((file) => file.path),
+      ageConfigExcludedPaths: this.getAgeConfigExcludedPaths()
+    };
+  }
+
+  private getAgeConfigExcludedPaths(): readonly string[] {
+    return this.isSharedAgeConfigActive() ? this.getExcludedPaths() : [];
   }
 
   private async getPasswordForVaultOperation(
@@ -382,7 +493,14 @@ export default class VaultInVaultPlugin extends Plugin {
 
     const verificationFile = this.app.vault
       .getFiles()
-      .filter((file) => file.path.toLowerCase().endsWith(".age"))
+      .filter(
+        (file) =>
+          file.path.toLowerCase().endsWith(".age") &&
+          !isExcludedVaultPath(
+            classifyAgePath(file.path).originalPath,
+            this.getExcludedPaths()
+          )
+      )
       .sort((left, right) => left.stat.size - right.stat.size)[0];
 
     while (true) {
@@ -412,7 +530,11 @@ export default class VaultInVaultPlugin extends Plugin {
     }
   }
 
-  private async publishPlaintext(file: TFile, plaintext: Uint8Array): Promise<TFile> {
+  private async publishPlaintext(
+    file: TFile,
+    plaintext: Uint8Array,
+    removeEncryptedSource = true
+  ): Promise<TFile> {
     const targetPath = classifyAgePath(file.path).originalPath;
     const existingTarget = this.app.vault.getFileByPath(targetPath);
     if (existingTarget !== null) {
@@ -420,7 +542,7 @@ export default class VaultInVaultPlugin extends Plugin {
       if (!bytesEqual(existing, plaintext)) {
         throw new Error(`${targetPath} already exists with different content.`);
       }
-      await this.app.vault.delete(file);
+      if (removeEncryptedSource) await this.app.vault.delete(file);
       return existingTarget;
     }
 
@@ -433,7 +555,7 @@ export default class VaultInVaultPlugin extends Plugin {
       await this.app.vault.delete(created);
       throw new Error(`Could not verify the decrypted copy of ${targetPath}.`);
     }
-    await this.app.vault.delete(file);
+    if (removeEncryptedSource) await this.app.vault.delete(file);
     return created;
   }
 
@@ -524,8 +646,9 @@ export default class VaultInVaultPlugin extends Plugin {
         isKnownImagePath(classifyAgePath(file.path).originalPath) &&
         isProtectedPlainPath(
           classifyAgePath(file.path).originalPath,
-          this.settings.extensions,
-          this.app.vault.configDir
+          this.getProtectedExtensions(),
+          this.app.vault.configDir,
+          this.getExcludedPaths()
         )
       ) {
         resolved.set(file.path, file);

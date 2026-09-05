@@ -53,6 +53,22 @@ describe("isProtectedPlainPath", () => {
     expect(isProtectedPlainPath("notes/.config/readme.md", ["md"], ".config"))
       .toBe(true);
   });
+
+  it("excludes configured files and complete directory subtrees", () => {
+    const excluded = ["Public", "资料/共享.md"];
+    expect(isProtectedPlainPath("Public/note.md", extensions, ".obsidian", excluded))
+      .toBe(false);
+    expect(isProtectedPlainPath("资料/共享.md", extensions, ".obsidian", excluded))
+      .toBe(false);
+    expect(isProtectedPlainPath("Publicity/note.md", extensions, ".obsidian", excluded))
+      .toBe(true);
+    expect(isProtectedPlainPath("资料/保留.md", extensions, ".obsidian", excluded))
+      .toBe(true);
+  });
+
+  it("always excludes the shared policy file", () => {
+    expect(isProtectedPlainPath(".ageconfig", extensions)).toBe(false);
+  });
 });
 
 describe("extension configuration", () => {

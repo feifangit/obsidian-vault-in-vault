@@ -15,3 +15,12 @@ export function findClosedFilePaths<Leaf>(
 
   return [...closed];
 }
+
+export function findLastProtectedClosedPath<Leaf>(
+  previous: ReadonlyMap<Leaf, string>,
+  current: ReadonlyMap<Leaf, string>,
+  isProtected: (path: string) => boolean
+): string | null {
+  if ([...current.values()].some(isProtected)) return null;
+  return findClosedFilePaths(previous, current).find(isProtected) ?? null;
+}

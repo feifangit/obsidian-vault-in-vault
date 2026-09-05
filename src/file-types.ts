@@ -49,17 +49,29 @@ export function classifyAgePath(path: string): EncryptedFileType {
 export function isProtectedPlainPath(
   path: string,
   protectedExtensions: readonly string[],
-  configDir = ".obsidian"
+  configDir = ".obsidian",
+  excludedPaths: readonly string[] = []
 ): boolean {
   const normalizedConfigDir = configDir.replace(/^\/+|\/+$/g, "");
   if (
     (normalizedConfigDir.length > 0 &&
       (path === normalizedConfigDir || path.startsWith(`${normalizedConfigDir}/`))) ||
-    path.toLowerCase().endsWith(".age")
+    path === ".ageconfig" ||
+    path.toLowerCase().endsWith(".age") ||
+    isExcludedVaultPath(path, excludedPaths)
   ) {
     return false;
   }
   return protectedExtensions.includes(getExtension(path));
+}
+
+export function isExcludedVaultPath(
+  path: string,
+  excludedPaths: readonly string[]
+): boolean {
+  return excludedPaths.some(
+    (excluded) => path === excluded || path.startsWith(`${excluded}/`)
+  );
 }
 
 export function isKnownImagePath(path: string): boolean {

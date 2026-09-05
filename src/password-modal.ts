@@ -13,13 +13,20 @@ export class PasswordModal extends Modal {
   private constructor(
     app: App,
     private readonly filePath: string,
+    private readonly requiresRememberForSession: boolean,
     private readonly resolveAnswer: (answer: PasswordAnswer | null) => void
   ) {
     super(app);
   }
 
-  static ask(app: App, filePath: string): Promise<PasswordAnswer | null> {
-    return new Promise((resolve) => new PasswordModal(app, filePath, resolve).open());
+  static ask(
+    app: App,
+    filePath: string,
+    requiresRememberForSession = false
+  ): Promise<PasswordAnswer | null> {
+    return new Promise((resolve) =>
+      new PasswordModal(app, filePath, requiresRememberForSession, resolve).open()
+    );
   }
 
   override onOpen(): void {
@@ -38,13 +45,21 @@ export class PasswordModal extends Modal {
     });
 
     new Setting(form)
-      .setName("Remember for this Obsidian session")
-      .setDesc("Stored only in plugin memory until you lock the views or unload the plugin.")
-      .addToggle((toggle) =>
-        toggle.setValue(true).onChange((value) => {
+      .setName(
+        this.requiresRememberForSession
+          ? "Remember until automatic lock"
+          : "Remember for this Obsidian session"
+      )
+      .setDesc(
+        this.requiresRememberForSession
+          ? "Required by automatic idle lock. Stored only in plugin memory and cleared after locking."
+          : "Stored only in plugin memory until you lock the views or unload the plugin."
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(true).setDisabled(this.requiresRememberForSession).onChange((value) => {
           this.rememberForSession = value;
-        })
-      );
+        });
+      });
 
     const buttons = form.createDiv({ cls: "vault-in-vault-modal-buttons" });
     const cancel = buttons.createEl("button", { text: "Cancel", attr: { type: "button" } });

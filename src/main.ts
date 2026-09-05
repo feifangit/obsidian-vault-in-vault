@@ -5,6 +5,7 @@ import {
   MarkdownView,
   Notice,
   Plugin,
+  setIcon,
   TFile,
   WorkspaceLeaf
 } from "obsidian";
@@ -13,6 +14,7 @@ import { join } from "path";
 
 import { AGE_VIEW_TYPE, EncryptedAgeView } from "./age-view";
 import { AGE_CONFIG_PATH, AgeConfigPolicy, normalizeExcludeList, parseAgeConfig } from "./age-config";
+import { runAutoLockBatch } from "./auto-lock";
 import { decryptWithPassphrase, encryptWithPassphrase } from "./crypto";
 import { EncryptionPasswordModal } from "./encryption-password-modal";
 import {
@@ -29,17 +31,29 @@ import { ProtectFilesModal, ProtectionSummary } from "./protect-files-modal";
 import { VaultInVaultSettingTab } from "./settings";
 import { ClosedFileProtectionModal } from "./tab-close-modal";
 import { findLastProtectedClosedPath } from "./tab-close-tracker";
+import {
+  ActivityTargetRegistry,
+  getSecurityModeIcon,
+  normalizeSecurityTimerSettings,
+  SecurityTimerMode,
+  SecurityTimeoutMinutes,
+  SessionSecurityClock
+} from "./security-timer";
 
 export interface VaultInVaultSettings {
   extensions: string[];
   excludedPaths: string[];
   autoDecryptEmbeddedImages: boolean;
+  passwordCacheTimeoutMinutes: SecurityTimeoutMinutes;
+  idleAutoLockMinutes: SecurityTimeoutMinutes;
 }
 
 const DEFAULT_SETTINGS: VaultInVaultSettings = {
   extensions: [...DEFAULT_PROTECTED_EXTENSIONS],
   excludedPaths: [],
-  autoDecryptEmbeddedImages: true
+  autoDecryptEmbeddedImages: true,
+  passwordCacheTimeoutMinutes: 0,
+  idleAutoLockMinutes: 0
 };
 
 class PasswordCancelledError extends Error {
@@ -61,6 +75,16 @@ export default class VaultInVaultPlugin extends Plugin {
   private leafSnapshotInitialized = false;
   private closedFilePromptQueue: Promise<void> = Promise.resolve();
   private readonly queuedClosedPaths = new Set<string>();
+  private readonly securityClock = new SessionSecurityClock();
+  private readonly trackedActivityDocuments = new ActivityTargetRegistry<Document>();
+  private ribbonLockEl: HTMLElement | null = null;
+  private ribbonMainIconEl: HTMLElement | null = null;
+  private ribbonModeBadgeEl: HTMLElement | null = null;
+  private renderedSecurityMode: SecurityTimerMode | null = null;
+  private securityTimerCheckRunning = false;
+  private autoLockInProgress = false;
+  private autoLockGeneration = 0;
+  private lastActivityIndicatorUpdateAt = 0;
 
   override async onload(): Promise<void> {
     await this.loadSettings();
@@ -102,17 +126,45 @@ export default class VaultInVaultPlugin extends Plugin {
       }
     });
 
-    this.addRibbonIcon("lock-keyhole", "Encrypt and lock vault", () => {
+    this.ribbonLockEl = this.addRibbonIcon("lock-keyhole", "Encrypt and lock vault", () => {
       void this.encryptAndLock(false).catch((error) => this.reportError(error));
     });
+    this.ribbonLockEl.addClass("vault-in-vault-ribbon-lock");
+    this.ribbonLockEl.empty();
+    this.ribbonMainIconEl = this.ribbonLockEl.createSpan({
+      cls: "vault-in-vault-ribbon-main-icon",
+      attr: { "aria-hidden": "true" }
+    });
+    this.ribbonModeBadgeEl = this.ribbonLockEl.createSpan({
+      cls: "vault-in-vault-mode-badge",
+      attr: { "aria-hidden": "true" }
+    });
+    this.ribbonLockEl.createSpan({ cls: "vault-in-vault-lock-indicator" });
+    this.updateSecurityIndicator();
 
-    this.app.workspace.onLayoutReady(() => this.captureOpenLeafFiles());
+    this.app.workspace.onLayoutReady(() => {
+      this.captureOpenLeafFiles();
+      this.registerExistingActivityWindows();
+    });
     this.registerEvent(
       this.app.workspace.on("layout-change", () => this.detectClosedFileTabs())
+    );
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => this.recordVaultActivity())
+    );
+    this.registerEvent(
+      this.app.workspace.on("editor-change", () => this.recordVaultActivity())
+    );
+    this.registerEvent(
+      this.app.workspace.on("window-open", (_workspaceWindow, openedWindow) => {
+        this.registerActivityWindow(openedWindow);
+        this.recordVaultActivity();
+      })
     );
 
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
+        this.recordVaultActivity();
         if (
           file === null ||
           file.extension.toLowerCase() !== "md" ||
@@ -129,6 +181,10 @@ export default class VaultInVaultPlugin extends Plugin {
     this.registerMarkdownPostProcessor(async (element, context) => {
       await this.processEncryptedImageEmbeds(element, context);
     });
+
+    this.registerInterval(window.setInterval(() => {
+      void this.checkSecurityTimers();
+    }, 1_000));
   }
 
   override onunload(): void {
@@ -264,6 +320,26 @@ export default class VaultInVaultPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  async setPasswordCacheTimeout(minutes: SecurityTimeoutMinutes): Promise<void> {
+    this.settings.passwordCacheTimeoutMinutes = minutes;
+    if (minutes > 0) this.settings.idleAutoLockMinutes = 0;
+    await this.saveSettings();
+    await this.checkSecurityTimers();
+    this.updateSecurityIndicator();
+  }
+
+  async setIdleAutoLockTimeout(minutes: SecurityTimeoutMinutes): Promise<void> {
+    this.settings.idleAutoLockMinutes = minutes;
+    if (minutes > 0) this.settings.passwordCacheTimeoutMinutes = 0;
+    this.securityClock.recordActivity();
+    await this.saveSettings();
+    this.updateSecurityIndicator();
+  }
+
+  requiresRememberedPassword(): boolean {
+    return this.settings.idleAutoLockMinutes > 0;
+  }
+
   isCancelledError(error: unknown): boolean {
     return error instanceof PasswordCancelledError;
   }
@@ -277,13 +353,18 @@ export default class VaultInVaultPlugin extends Plugin {
     } catch {
       excludedPaths = [];
     }
+    const securityTimers = normalizeSecurityTimerSettings(
+      data?.passwordCacheTimeoutMinutes,
+      data?.idleAutoLockMinutes
+    );
     this.settings = {
       extensions: extensions.length > 0 ? extensions : [...DEFAULT_SETTINGS.extensions],
       excludedPaths,
       autoDecryptEmbeddedImages:
         typeof data?.autoDecryptEmbeddedImages === "boolean"
           ? data.autoDecryptEmbeddedImages
-          : DEFAULT_SETTINGS.autoDecryptEmbeddedImages
+          : DEFAULT_SETTINGS.autoDecryptEmbeddedImages,
+      ...securityTimers
     };
     // Persist the normalized schema and remove obsolete tracking-only fields
     // from pre-0.3 plugin data. Passwords are never part of this object.
@@ -313,11 +394,15 @@ export default class VaultInVaultPlugin extends Plugin {
       }
     }
 
-    const answer = await PasswordModal.ask(this.app, filePath);
+    const answer = await PasswordModal.ask(
+      this.app,
+      filePath,
+      this.requiresRememberedPassword()
+    );
     if (answer === null) throw new PasswordCancelledError();
     try {
       const plaintext = await decryptWithPassphrase(ciphertext, answer.password);
-      if (answer.rememberForSession) this.sessionPassword = answer.password;
+      if (answer.rememberForSession) this.cachePassword(answer.password);
       this.configurationUnlocked = true;
       return { plaintext, password: answer.password };
     } catch {
@@ -327,6 +412,10 @@ export default class VaultInVaultPlugin extends Plugin {
   }
 
   private async encryptAndLock(alreadyConfirmed = false): Promise<void> {
+    if (this.autoLockInProgress) {
+      new Notice("Vault in Vault is already automatically locking this vault.");
+      return;
+    }
     await this.requireValidProtectionPolicy();
     let files = this.getProtectedPlaintextFiles();
     if (files.length === 0) {
@@ -378,6 +467,11 @@ export default class VaultInVaultPlugin extends Plugin {
 
   private detectClosedFileTabs(): void {
     const current = this.readOpenLeafFiles();
+    if (this.autoLockInProgress) {
+      this.openLeafFiles = current;
+      this.leafSnapshotInitialized = true;
+      return;
+    }
     if (!this.leafSnapshotInitialized) {
       this.openLeafFiles = current;
       this.leafSnapshotInitialized = true;
@@ -420,6 +514,7 @@ export default class VaultInVaultPlugin extends Plugin {
   private async handleClosedFile(path: string): Promise<void> {
     // Yield once so the view can finish its normal save before encryption reads it.
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    if (this.autoLockInProgress) return;
     await this.requireValidProtectionPolicy();
     const file = this.app.vault.getFileByPath(path);
     if (
@@ -434,11 +529,13 @@ export default class VaultInVaultPlugin extends Plugin {
     if (this.isPathOpenInAnyLeaf(path)) return;
 
     const allFiles = this.getProtectedPlaintextFiles();
+    const autoLockGeneration = this.autoLockGeneration;
     const decision = await ClosedFileProtectionModal.ask(this.app, {
       filePath: path,
       allFilePaths: allFiles.map((candidate) => candidate.path),
       ageConfigExcludedPaths: this.getAgeConfigExcludedPaths()
     });
+    if (this.autoLockInProgress || autoLockGeneration !== this.autoLockGeneration) return;
     if (decision === "leave") return;
     if (decision === "all") {
       await this.encryptAndLock(true);
@@ -547,7 +644,8 @@ export default class VaultInVaultPlugin extends Plugin {
           ? `${description} No existing age file is available, so enter it twice.`
           : `${description} It will be verified against an existing age file.`,
         submitLabel,
-        requiresConfirmation: verificationFile === undefined
+        requiresConfirmation: verificationFile === undefined,
+        requiresRememberForSession: this.requiresRememberedPassword()
       });
       if (answer === null) throw new PasswordCancelledError();
 
@@ -561,7 +659,7 @@ export default class VaultInVaultPlugin extends Plugin {
         }
       }
 
-      if (answer.rememberForSession) this.sessionPassword = answer.password;
+      if (answer.rememberForSession) this.cachePassword(answer.password);
       this.configurationUnlocked = true;
       return answer.password;
     }
@@ -764,6 +862,202 @@ export default class VaultInVaultPlugin extends Plugin {
   private clearPassword(): void {
     this.sessionPassword = null;
     this.configurationUnlocked = false;
+    this.securityClock.clearPassword();
+    this.updateSecurityIndicator();
+  }
+
+  private cachePassword(password: string): void {
+    this.sessionPassword = password;
+    this.securityClock.setPasswordCached();
+    this.updateSecurityIndicator();
+  }
+
+  private registerExistingActivityWindows(): void {
+    this.registerActivityWindow(this.app.workspace.rootSplit.win);
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const activityWindow = leaf.view.containerEl.ownerDocument.defaultView;
+      if (activityWindow !== null) this.registerActivityWindow(activityWindow);
+    });
+  }
+
+  private registerActivityWindow(activityWindow: Window): void {
+    const { document } = activityWindow;
+    if (!this.trackedActivityDocuments.add(document)) return;
+
+    const record = (): void => this.recordVaultActivity();
+    this.registerDomEvent(document, "keydown", record, { capture: true });
+    this.registerDomEvent(document, "pointerdown", record, { capture: true, passive: true });
+    this.registerDomEvent(document, "pointermove", record, { capture: true, passive: true });
+    this.registerDomEvent(document, "touchstart", record, { capture: true, passive: true });
+    this.registerDomEvent(document, "wheel", record, { capture: true, passive: true });
+    this.registerDomEvent(activityWindow, "focus", () => {
+      void this.checkSecurityTimers().then(() => {
+        if (this.sessionPassword !== null && !this.autoLockInProgress) {
+          this.recordVaultActivity();
+        }
+      });
+    });
+  }
+
+  private recordVaultActivity(): void {
+    if (this.autoLockInProgress) return;
+    const now = Date.now();
+    this.securityClock.recordActivity(now);
+    // Pointer movement can fire many times per frame. The one-second timer keeps
+    // the visual countdown current, so DOM writes only need to be throttled here.
+    if (now - this.lastActivityIndicatorUpdateAt >= 1_000) {
+      this.lastActivityIndicatorUpdateAt = now;
+      this.updateSecurityIndicator();
+    }
+  }
+
+  private async checkSecurityTimers(): Promise<void> {
+    if (this.securityTimerCheckRunning) return;
+    const snapshot = this.securityClock.snapshot(this.sessionPassword !== null, this.settings);
+    this.updateSecurityIndicator(snapshot);
+    if (snapshot.action === "none") return;
+
+    this.securityTimerCheckRunning = true;
+    try {
+      if (snapshot.action === "clear-password") {
+        this.clearPassword();
+        new Notice("Vault in Vault: cached password expired and was cleared.");
+      } else {
+        await this.autoLockAfterIdle();
+      }
+    } finally {
+      this.securityTimerCheckRunning = false;
+      this.updateSecurityIndicator();
+    }
+  }
+
+  private async autoLockAfterIdle(): Promise<void> {
+    const password = this.sessionPassword;
+    if (password === null || this.autoLockInProgress) return;
+
+    this.autoLockInProgress = true;
+    this.autoLockGeneration++;
+    const progress = new Notice("Vault in Vault: automatically locking idle vault…", 0);
+    try {
+      let protectedLeaves = new Map<WorkspaceLeaf, string>();
+      const result = await runAutoLockBatch({
+        prepare: async () => {
+          // A valid policy and completed editor saves are required before any
+          // source is replaced or any protected leaf is detached.
+          await this.requireValidProtectionPolicy();
+          await this.saveOpenMarkdownViews();
+          await this.requireValidProtectionPolicy();
+          protectedLeaves = this.readProtectedPlaintextLeaves();
+          return this.getProtectedPlaintextFiles();
+        },
+        protect: (file) => this.encryptPlaintextFile(file, password),
+        afterProtected: (file, completed, total) => {
+          this.detachLeavesForEncryptedPath(protectedLeaves, file.path);
+          progress.setMessage(`Vault in Vault: automatically locking ${completed}/${total}…`);
+        }
+      });
+
+      this.captureOpenLeafFiles();
+      if (result.failures.length === 0) {
+        new Notice(
+          result.completed === 0
+            ? "Vault locked; no matching plaintext files were found."
+            : `Automatically encrypted and locked ${result.completed} ${result.completed === 1 ? "file" : "files"}.`
+        );
+      } else {
+        const messages = result.failures.map(({ file, error }) => {
+          const message = error instanceof Error ? error.message : String(error);
+          return `${file.path}: ${message}`;
+        });
+        const preview = messages.slice(0, 3).join("; ");
+        const suffix = messages.length > 3 ? `; and ${messages.length - 3} more` : "";
+        new Notice(
+          `Automatic lock encrypted ${result.completed} files, but ${messages.length} failed. Plaintext was kept. ${preview}${suffix}`,
+          15_000
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(`Vault in Vault: automatic lock stopped safely: ${message}`, 15_000);
+    } finally {
+      progress.hide();
+      this.clearPassword();
+      this.autoLockInProgress = false;
+    }
+  }
+
+  private readProtectedPlaintextLeaves(): Map<WorkspaceLeaf, string> {
+    const leaves = new Map<WorkspaceLeaf, string>();
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (
+        leaf.view instanceof FileView &&
+        leaf.view.file !== null &&
+        isProtectedPlainPath(
+          leaf.view.file.path,
+          this.getProtectedExtensions(),
+          this.app.vault.configDir,
+          this.getExcludedPaths()
+        )
+      ) {
+        leaves.set(leaf, leaf.view.file.path);
+      }
+    });
+    return leaves;
+  }
+
+  private detachLeavesForEncryptedPath(
+    leaves: ReadonlyMap<WorkspaceLeaf, string>,
+    encryptedPath: string
+  ): void {
+    for (const [leaf, originalPath] of leaves) {
+      if (originalPath !== encryptedPath) continue;
+      const currentPath = leaf.view instanceof FileView ? leaf.view.file?.path : undefined;
+      if (currentPath === encryptedPath || currentPath === undefined) leaf.detach();
+    }
+  }
+
+  private updateSecurityIndicator(
+    snapshot = this.securityClock.snapshot(this.sessionPassword !== null, this.settings)
+  ): void {
+    if (this.ribbonLockEl === null) return;
+    this.renderRibbonModeIcon(snapshot.mode);
+    const remaining = snapshot.remainingMs === null
+      ? null
+      : Math.max(1, Math.ceil(snapshot.remainingMs / 60_000));
+    let label: string;
+    if (this.autoLockInProgress) {
+      label = "Vault in Vault is encrypting and locking the vault.";
+    } else if (snapshot.indicator === "locked") {
+      label = this.settings.idleAutoLockMinutes > 0
+        ? "Vault password is not cached; automatic idle lock is not armed."
+        : "Vault password is not cached.";
+    } else if (snapshot.mode === "password-clear") {
+      label = `Vault password is cached; it will be cleared in about ${remaining} ${remaining === 1 ? "minute" : "minutes"}.`;
+    } else if (snapshot.mode === "idle-lock") {
+      label = `Vault password is cached; automatic lock in about ${remaining} ${remaining === 1 ? "minute" : "minutes"} without activity.`;
+    } else {
+      label = "Vault password is cached for this Obsidian session.";
+    }
+    this.ribbonLockEl.dataset.vaultLockState = this.autoLockInProgress
+      ? "warning"
+      : snapshot.indicator;
+    this.ribbonLockEl.setAttribute("aria-label", `${label} Click to encrypt and lock now.`);
+  }
+
+  private renderRibbonModeIcon(mode: SecurityTimerMode): void {
+    if (
+      this.renderedSecurityMode === mode ||
+      this.ribbonMainIconEl === null ||
+      this.ribbonModeBadgeEl === null
+    ) return;
+
+    const icons = getSecurityModeIcon(mode);
+    this.ribbonMainIconEl.empty();
+    setIcon(this.ribbonMainIconEl, icons.baseIcon);
+    this.ribbonModeBadgeEl.empty();
+    this.ribbonModeBadgeEl.classList.toggle("is-hidden", icons.badgeIcon === null);
+    if (icons.badgeIcon !== null) setIcon(this.ribbonModeBadgeEl, icons.badgeIcon);
+    this.renderedSecurityMode = mode;
   }
 
   private reportError(error: unknown): void {

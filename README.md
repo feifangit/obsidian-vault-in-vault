@@ -43,6 +43,22 @@ The settings page shows the file extensions covered by vault-wide locking. Setti
 
 ![Protected file type and embedded image settings](docs/images/protected-file-settings.png)
 
+### Leave selected files and folders unencrypted
+
+Add vault-relative paths to `exclude` in `.ageconfig` when a public folder, template, or individual file should never be included in encryption or password-verification scans. A folder entry excludes its entire subtree. The settings page shows the active exclusions as read-only when the shared policy is in use.
+
+![Excluded files and folders managed by the shared ageconfig policy](docs/images/excluded-paths.png)
+
+### Limit how long the password remains available
+
+Session security offers two mutually exclusive choices. **Password auto-clear** only removes the cached password after a fixed time. **Auto-lock after Vault inactivity** waits for a period without activity, saves open Markdown editors, encrypts matching plaintext files, closes successfully protected tabs, and clears the password.
+
+![Password auto-clear and automatic Vault inactivity lock settings](docs/images/session-security.png)
+
+The Ribbon icon shows the configured mode separately from password status:
+
+![Manual lock, password auto-clear, automatic idle lock, and password status indicators](docs/images/security-mode-icons.png)
+
 ## Features
 
 - Opens password-encrypted `.age` files from the file explorer.
@@ -50,6 +66,8 @@ The settings page shows the file extensions covered by vault-wide locking. Setti
 - Re-encrypts the final closed file or every matching plaintext file after the last protected plaintext tab closes.
 - Provides an **Encrypt and lock vault now** command and ribbon action.
 - Caches a password in memory only when the user chooses to remember it for the current session.
+- Shows a red, green, or yellow light under the ribbon lock for unavailable, cached, or soon-expiring password state.
+- Can clear a cached password after a hard time limit, or automatically encrypt and lock after no activity in this Vault.
 - Uses configurable protected extensions and vault-relative file/folder exclusions. The defaults are `.md`, `.avif`, `.bmp`, `.gif`, `.jpeg`, `.jpg`, `.png`, `.svg`, and `.webp`.
 - Preserves subfolders and excludes the vault configuration directory and files already ending in `.age`.
 - Verifies every new plaintext or ciphertext copy before deleting its source.
@@ -95,9 +113,22 @@ Image links in Markdown retain their ordinary names and do not need an `.age` su
 - Passwords are never written to `data.json`.
 - There is no password recovery. A lost password makes the encrypted files unrecoverable.
 
+### Session security timers
+
+The settings page offers two mutually exclusive timers. Both are off by default:
+
+- **Password auto-clear** removes the cached password after a fixed time measured from when it entered memory. Activity does not extend the deadline, and plaintext files remain as they are.
+- **Auto-lock after Vault inactivity** resets on keyboard, pointer, touch, scroll, editor, and tab activity in this Vault. When it expires, the plugin waits for open Markdown editors to save, encrypts every matching non-excluded plaintext file, closes successfully protected tabs, and clears the password without another confirmation.
+
+The ribbon uses a key with a clock badge for password auto-clear and a lock with a circular-arrow badge for automatic idle lock. With both timers off it shows the ordinary lock. The badge identifies the configured mode; the separate red, green, or yellow bar identifies password availability and an approaching deadline. The settings page uses the same icons.
+
+Automatic idle lock requires the password to remain cached. While that mode is enabled, password prompts keep **Remember until automatic lock** enabled. A restart never restores the password, so automatic lock is unarmed until a password is entered again.
+
+The timer measures activity visible to the plugin in this Vault's Obsidian windows, including popouts. It is not operating-system idle detection. Switching to another app continues the countdown. Background sync and unrelated file modification times do not reset it. If the computer sleeps or Obsidian is suspended, the deadline is checked as soon as the app resumes.
+
 ## Settings
 
-Open **Settings -> Vault in Vault** to inspect the protected extensions, excluded paths, and embedded-image behavior. Editing these settings is locked until an existing vault password is verified. The UI lock prevents accidental changes; it is not a security boundary.
+Open **Settings -> Vault in Vault** to inspect the protected extensions, excluded paths, embedded-image behavior, and session security timers. Editing the protection policy is locked until an existing vault password is verified. Timer controls remain available so a cached password can always be constrained. The UI lock prevents accidental policy changes; it is not a security boundary.
 
 Settings are stored per vault in:
 
@@ -191,6 +222,9 @@ The GitHub Release must contain `main.js`, `manifest.json`, and `styles.css`. Ob
 Vault in Vault uses [`age-encryption`](https://github.com/FiloSottile/typage) with an age scrypt work factor of 14. Files are compatible with standard passphrase-encrypted age files. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependency notices.
 
 Desktop support is declared while the pre-release is being tested. Mobile support may be enabled after the same file lifecycle has been verified on iOS and Android.
+
+If you're also using Obsidian calendar plugin, you may take a look at the updated version which support `.md.age` extension.
+- https://github.com/feifangit/obsidian-calendar-plugin
 
 ## License
 

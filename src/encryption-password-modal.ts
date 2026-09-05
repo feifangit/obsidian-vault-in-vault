@@ -7,6 +7,7 @@ export interface VaultPasswordRequest {
   description: string;
   submitLabel: string;
   requiresConfirmation: boolean;
+  requiresRememberForSession?: boolean;
 }
 
 export class EncryptionPasswordModal extends Modal {
@@ -52,13 +53,21 @@ export class EncryptionPasswordModal extends Modal {
     }
 
     new Setting(form)
-      .setName("Remember for this Obsidian session")
-      .setDesc("Stored only in plugin memory; never written to disk.")
-      .addToggle((toggle) =>
-        toggle.setValue(true).onChange((value) => {
+      .setName(
+        this.request.requiresRememberForSession
+          ? "Remember until automatic lock"
+          : "Remember for this Obsidian session"
+      )
+      .setDesc(
+        this.request.requiresRememberForSession
+          ? "Required by automatic idle lock. Stored only in plugin memory and cleared after locking."
+          : "Stored only in plugin memory; never written to disk."
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(true).setDisabled(this.request.requiresRememberForSession === true).onChange((value) => {
           this.rememberForSession = value;
-        })
-      );
+        });
+      });
 
     this.errorEl = form.createDiv({ cls: "vault-in-vault-modal-error" });
     const buttons = form.createDiv({ cls: "vault-in-vault-modal-buttons" });

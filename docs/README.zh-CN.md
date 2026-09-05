@@ -43,6 +43,22 @@ Vault in Vault 让你用一个密码锁住私密笔记和图片，不需要把�
 
 ![受保护文件类型和图片自动解密设置](images/protected-file-settings.png)
 
+### 排除不需要加密的文件和目录
+
+如果公开目录、模板或某个文件永远不应参与加密和密码验证扫描，可以在 `.ageconfig` 的 `exclude` 中填写相对于 Vault 根目录的路径。填写一个目录会排除它的整个子目录。使用共享策略时，设置页会以只读方式显示当前排除项。
+
+![由 ageconfig 共享策略管理的排除文件和目录](images/excluded-paths.png)
+
+### 限制密码在内存中的可用时间
+
+Session security 提供两个互斥选项。**Password auto-clear** 只在固定时间后清除缓存密码；**Auto-lock after Vault inactivity** 会等待 Vault 一段时间没有操作，保存打开的 Markdown 编辑器，加密匹配的明文，关闭已经成功保护的 Tab，最后清除密码。
+
+![密码自动清除和 Vault idle 自动锁定设置](images/session-security.png)
+
+Ribbon 图标分别表达配置模式和密码状态：
+
+![手动锁定、密码自动清除、idle 自动锁定和密码状态灯图例](images/security-mode-icons.png)
+
 ## 主要功能
 
 - 从文件列表直接打开使用密码加密的 `.age` 文件。
@@ -50,6 +66,8 @@ Vault in Vault 让你用一个密码锁住私密笔记和图片，不需要把�
 - 关闭最后一个受保护明文 Tab 后，可选择加密刚关闭的文件、加密全部匹配明文或暂时保留明文。
 - 提供 **Encrypt and lock vault now** 命令和 Ribbon 锁按钮。
 - 用户明确选择后，密码仅缓存在当前插件会话的内存中。
+- Ribbon 锁按钮下方用红、绿、黄状态灯表示密码不可用、已缓存或 timer 即将到期。
+- 可以在固定时间后只清除缓存密码，也可以在当前 Vault 长时间没有操作后自动加密并锁定。
 - 默认保护 `.md`、`.avif`、`.bmp`、`.gif`、`.jpeg`、`.jpg`、`.png`、`.svg` 和 `.webp`，也可以设置要跳过的文件或文件夹。
 - 保留子目录，排除 Vault 配置目录和已经以 `.age` 结尾的文件。
 - 删除源文件前，会重新读取并验证刚生成的明文或密文。
@@ -85,9 +103,22 @@ Tab 会先关闭，让 Obsidian 完成正常保存，然后在应用仍运行时
 - 密码不会写入 `data.json`。
 - 不提供密码恢复；密码丢失后无法恢复密文。
 
+### Session 安全 timer
+
+设置页提供两个互斥的 timer，默认都为 **Off**：
+
+- **Password auto-clear**：从密码进入内存时开始固定计时。用户操作不会延长时间；到期只清除密码，不关闭 Tab，也不改变仍为明文的文件。
+- **Auto-lock after Vault inactivity**：当前 Vault 中发生键盘、鼠标、触摸、滚动、编辑或 Tab 切换时会重新计时。到期后，插件先等待 Markdown 编辑器保存，再加密所有匹配且未被排除的明文，关闭已经成功保护的 Tab，并清除密码，不再弹出确认框。
+
+Ribbon 使用“钥匙 + 小钟”表示 password auto-clear，使用“锁 + 环形箭头”表示自动 idle 锁定；两个 timer 都关闭时显示普通锁。右上角 badge 只表示配置模式，底部红、绿、黄状态灯分别表示密码不可用、可用和 deadline 即将到期。设置页使用相同图标。
+
+自动 idle 锁定必须把密码保留在内存中，因此启用后密码窗口会固定开启 **Remember until automatic lock**。Obsidian 重启后绝不会恢复密码；在用户再次输入密码前，自动锁定处于未 armed 状态。
+
+这里的 idle 只表示插件没有在这个 Vault 的 Obsidian 主窗口或 popout 窗口中观察到操作，不是操作系统级 idle。切换到其他应用后会继续计时；后台同步和文件修改时间不会重置计时。电脑休眠或 Obsidian 被暂停时，恢复后会立即重新检查 deadline。
+
 ## 加密范围设置和 `.ageconfig`
 
-现有的文件类型选项位于 **Settings -> Vault in Vault -> Protected file types**。没有 `.ageconfig` 时，扩展名和排除路径保存在当前 Vault 插件目录的 `data.json` 中；验证 Vault 密码后才能编辑。
+文件类型选项位于 **Settings -> Vault in Vault -> Protected file types**，安全 timer 也位于同一个设置页面。没有 `.ageconfig` 时，扩展名、排除路径和 timer 设置保存在当前 Vault 插件目录的 `data.json` 中；密码永远不会写入其中。验证 Vault 密码后才能编辑保护策略，timer 则始终可以调整。
 
 如果希望 Obsidian 插件和 Go 命令行工具共用同一套策略，可以在 Vault 根目录创建 `.ageconfig`：
 

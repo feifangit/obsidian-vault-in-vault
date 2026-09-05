@@ -1,8 +1,14 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { PluginSettingTab, setIcon, Setting } from "obsidian";
 
 import type VaultInVaultPlugin from "./main";
 import { AGE_CONFIG_PATH, normalizeExcludeList } from "./age-config";
 import { formatExtensionList, normalizeExtensionList } from "./file-types";
+import {
+  getSecurityModeIcon,
+  SECURITY_TIMEOUT_OPTIONS,
+  SecurityTimerMode,
+  SecurityTimeoutMinutes
+} from "./security-timer";
 
 export class VaultInVaultSettingTab extends PluginSettingTab {
   constructor(private readonly plugin: VaultInVaultPlugin) {
@@ -120,9 +126,86 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
         });
       });
 
+    containerEl.createEl("h3", { text: "Session security" });
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text: "These two timers are mutually exclusive. Passwords remain in memory only and are never restored after Obsidian restarts."
+    });
+
+    securityTimerSetting(containerEl, "Password auto-clear", "password-clear")
+      .setDesc(
+        "Clear the cached password after a fixed maximum time. User activity does not extend this timer, and plaintext files remain open. Enabling this disables automatic idle lock."
+      )
+      .addDropdown((dropdown) => {
+        addTimeoutOptions(dropdown);
+        dropdown.setValue(String(this.plugin.settings.passwordCacheTimeoutMinutes));
+        dropdown.onChange(async (value) => {
+          await this.plugin.setPasswordCacheTimeout(Number(value) as SecurityTimeoutMinutes);
+          this.display();
+        });
+      });
+
+    securityTimerSetting(containerEl, "Auto-lock after Vault inactivity", "idle-lock")
+      .setDesc(
+        "After no keyboard, pointer, touch, scroll, editor, or tab activity in this Vault, save editors, encrypt matching plaintext files, close their tabs, and clear the password. Enabling this disables password auto-clear."
+      )
+      .addDropdown((dropdown) => {
+        addTimeoutOptions(dropdown);
+        dropdown.setValue(String(this.plugin.settings.idleAutoLockMinutes));
+        dropdown.onChange(async (value) => {
+          await this.plugin.setIdleAutoLockTimeout(Number(value) as SecurityTimeoutMinutes);
+          this.display();
+        });
+      });
+
     containerEl.createEl("p", {
       cls: "setting-item-description",
       text: `${AGE_CONFIG_PATH} and data.json never contain a password. The UI lock prevents accidental changes; it is not a security boundary.`
     });
+  }
+}
+
+function securityTimerSetting(
+  containerEl: HTMLElement,
+  label: string,
+  mode: SecurityTimerMode
+): Setting {
+  const setting = new Setting(containerEl).setName(label);
+  const document = containerEl.ownerDocument;
+  const icon = document.createElement("span");
+  icon.className = "vault-in-vault-setting-mode-icon";
+  icon.setAttribute("aria-hidden", "true");
+
+  const icons = getSecurityModeIcon(mode);
+  const base = document.createElement("span");
+  base.className = "vault-in-vault-setting-base-icon";
+  setIcon(base, icons.baseIcon);
+  icon.append(base);
+
+  if (icons.badgeIcon !== null) {
+    const badge = document.createElement("span");
+    badge.className = "vault-in-vault-setting-mode-badge";
+    setIcon(badge, icons.badgeIcon);
+    icon.append(badge);
+  }
+
+  setting.nameEl.prepend(icon);
+  setting.nameEl.addClass("vault-in-vault-setting-name");
+  setting.nameEl.setAttribute("aria-label", `${label}: ${icons.accessibleName}`);
+  return setting;
+}
+
+function addTimeoutOptions(dropdown: {
+  addOption(value: string, display: string): unknown;
+}): void {
+  for (const minutes of SECURITY_TIMEOUT_OPTIONS) {
+    dropdown.addOption(
+      String(minutes),
+      minutes === 0
+        ? "Off"
+        : minutes < 60
+          ? `${minutes} minutes`
+          : `${minutes / 60} ${minutes === 60 ? "hour" : "hours"}`
+    );
   }
 }

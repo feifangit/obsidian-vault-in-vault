@@ -6,6 +6,39 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-09-05
+
+### Documentation
+
+- Added screenshots for shared-policy exclusions and session security settings.
+- Added a generated PNG guide to Ribbon security modes and password-status colors.
+
+## [0.7.2] - 2026-09-05
+
+### Fixed
+
+- Render the session security setting labels as normal text instead of `[object DocumentFragment]` while retaining their composite mode icons.
+
+## [0.7.1] - 2026-09-05
+
+### Changed
+
+- The ribbon distinguishes password auto-clear with a key-and-clock icon and automatic idle lock with a lock-and-refresh icon.
+- Session security settings show the same composite icons as the ribbon while the red, green, and yellow bar remains dedicated to password status.
+
+## [0.7.0] - 2026-09-05
+
+### Added
+
+- Red, green, and yellow status light beneath the ribbon lock to show whether the password is cached and whether a security timer is close to expiring.
+- Mutually exclusive password auto-clear and Vault inactivity auto-lock timers.
+- Best-effort Vault activity tracking across the main window and popout windows without relying on filesystem timestamps.
+
+### Safety
+
+- Automatic idle lock flushes Markdown editors, validates `.ageconfig`, encrypts and verifies each matching plaintext file, closes successfully protected tabs, and clears the password.
+- Failed files retain their plaintext source, and configuration or save failures stop the operation before protected tabs are closed.
+
 ## [0.6.4] - 2026-09-05
 
 ### Added

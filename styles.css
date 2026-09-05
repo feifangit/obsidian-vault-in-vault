@@ -62,3 +62,102 @@
   margin: var(--size-4-2) 0;
   padding: var(--size-4-2) var(--size-4-3);
 }
+
+.vault-in-vault-ribbon-lock {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+  position: relative;
+}
+
+.vault-in-vault-ribbon-main-icon {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.vault-in-vault-mode-badge {
+  align-items: center;
+  background: var(--background-primary);
+  border-radius: 999px;
+  color: var(--text-accent);
+  display: flex;
+  height: 11px;
+  justify-content: center;
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  width: 11px;
+}
+
+.vault-in-vault-mode-badge.is-hidden {
+  display: none;
+}
+
+.vault-in-vault-mode-badge > svg {
+  height: 9px;
+  width: 9px;
+}
+
+.vault-in-vault-lock-indicator {
+  background: var(--color-red);
+  border: 1px solid var(--background-primary);
+  border-radius: 999px;
+  bottom: 2px;
+  box-shadow: 0 0 0 1px var(--background-modifier-border);
+  height: 4px;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  width: 14px;
+}
+
+.vault-in-vault-ribbon-lock[data-vault-lock-state="ready"] .vault-in-vault-lock-indicator {
+  background: var(--color-green);
+}
+
+.vault-in-vault-ribbon-lock[data-vault-lock-state="warning"] .vault-in-vault-lock-indicator {
+  background: var(--color-yellow);
+}
+
+.vault-in-vault-setting-name {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--size-4-2);
+}
+
+.vault-in-vault-setting-mode-icon {
+  align-items: center;
+  display: inline-flex;
+  height: 20px;
+  justify-content: center;
+  position: relative;
+  width: 20px;
+}
+
+.vault-in-vault-setting-base-icon,
+.vault-in-vault-setting-base-icon > svg {
+  height: 18px;
+  width: 18px;
+}
+
+.vault-in-vault-setting-mode-badge {
+  align-items: center;
+  background: var(--background-primary);
+  border-radius: 999px;
+  color: var(--text-accent);
+  display: flex;
+  height: 9px;
+  justify-content: center;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 9px;
+}
+
+.vault-in-vault-setting-mode-badge > svg {
+  height: 8px;
+  width: 8px;
+}

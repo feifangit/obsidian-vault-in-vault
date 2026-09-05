@@ -11,3 +11,5 @@ After this repository is published on GitHub, report vulnerabilities through a p
 Include the plugin version, Obsidian version, operating system, reproduction steps using disposable data, and the security impact. If a public issue is the only available contact path, ask for a private reporting channel without posting exploit details.
 
 The security and plaintext-at-rest boundaries are documented in [README.md](README.md#security-model).
+
+Automatic idle lock is a best-effort safety feature based on activity visible in this Vault's Obsidian windows. It is not operating-system idle detection and cannot guarantee encryption after a crash, forced quit, process suspension, or power loss.

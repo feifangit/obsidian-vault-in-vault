@@ -1,6 +1,6 @@
 {
   "name": "vault-in-vault",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Encrypt selected vault files and lock plaintext after tabs close or on demand.",
   "main": "main.js",
   "type": "module",

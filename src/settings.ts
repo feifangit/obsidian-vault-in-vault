@@ -31,6 +31,26 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName(`Edit ${AGE_CONFIG_PATH}`)
+      .setDesc(
+        this.plugin.canOpenAgeConfigExternally()
+          ? "Open the shared policy with the operating system's default editor, or reveal it in the file manager."
+          : `Create ${AGE_CONFIG_PATH} in the vault root, then reload the policy to enable these actions.`
+      )
+      .addButton((button) => {
+        button
+          .setButtonText("Open in default editor")
+          .setDisabled(!this.plugin.canOpenAgeConfigExternally())
+          .onClick(() => void this.plugin.openAgeConfigExternally());
+      })
+      .addButton((button) => {
+        button
+          .setButtonText("Show in file manager")
+          .setDisabled(!this.plugin.canOpenAgeConfigExternally())
+          .onClick(() => this.plugin.revealAgeConfigInFileManager());
+      });
+
+    new Setting(containerEl)
       .setName("Protected file types")
       .setDesc(
         sharedPolicy

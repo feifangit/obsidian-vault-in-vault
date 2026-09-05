@@ -1,4 +1,5 @@
 import {
+  FileSystemAdapter,
   FileView,
   MarkdownPostProcessorContext,
   MarkdownView,
@@ -7,6 +8,8 @@ import {
   TFile,
   WorkspaceLeaf
 } from "obsidian";
+import { shell } from "electron";
+import { join } from "path";
 
 import { AGE_VIEW_TYPE, EncryptedAgeView } from "./age-view";
 import { AGE_CONFIG_PATH, AgeConfigPolicy, normalizeExcludeList, parseAgeConfig } from "./age-config";
@@ -52,6 +55,7 @@ export default class VaultInVaultPlugin extends Plugin {
   private configurationUnlocked = false;
   private sharedAgeConfig: AgeConfigPolicy | null = null;
   private sharedAgeConfigError: string | null = null;
+  private sharedAgeConfigExists = false;
   private readonly decryptJobs = new Map<string, Promise<TFile>>();
   private openLeafFiles = new Map<WorkspaceLeaf, string>();
   private leafSnapshotInitialized = false;
@@ -181,14 +185,47 @@ export default class VaultInVaultPlugin extends Plugin {
     return this.sharedAgeConfig !== null;
   }
 
+  canOpenAgeConfigExternally(): boolean {
+    return this.sharedAgeConfigExists && this.app.vault.adapter instanceof FileSystemAdapter;
+  }
+
+  async openAgeConfigExternally(): Promise<void> {
+    try {
+      const configPath = this.getAgeConfigSystemPath();
+      const error = await shell.openPath(configPath);
+      if (error.length > 0) throw new Error(error);
+    } catch (error) {
+      this.reportError(error);
+    }
+  }
+
+  revealAgeConfigInFileManager(): void {
+    try {
+      shell.showItemInFolder(this.getAgeConfigSystemPath());
+    } catch (error) {
+      this.reportError(error);
+    }
+  }
+
+  private getAgeConfigSystemPath(): string {
+    if (!this.sharedAgeConfigExists) throw new Error(`${AGE_CONFIG_PATH} does not exist.`);
+    const { adapter } = this.app.vault;
+    if (!(adapter instanceof FileSystemAdapter)) {
+      throw new Error("Opening external files requires a desktop filesystem vault.");
+    }
+    return join(adapter.getBasePath(), AGE_CONFIG_PATH);
+  }
+
   async reloadAgeConfig(showNotice = true): Promise<void> {
     this.sharedAgeConfig = null;
     this.sharedAgeConfigError = null;
+    this.sharedAgeConfigExists = false;
     try {
       if (!(await this.app.vault.adapter.exists(AGE_CONFIG_PATH))) {
         if (showNotice) new Notice(`${AGE_CONFIG_PATH} not found; using plugin settings.`);
         return;
       }
+      this.sharedAgeConfigExists = true;
       const contents = await this.app.vault.adapter.read(AGE_CONFIG_PATH);
       if (new TextEncoder().encode(contents).byteLength > 64 * 1024) {
         throw new Error("the file is larger than 64 KiB");

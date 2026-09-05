@@ -6,6 +6,12 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-09-05
+
+### Added
+
+- Settings actions to open `.ageconfig` with the system default editor or reveal it in the desktop file manager.
+
 ## [0.6.3] - 2026-09-05
 
 ### Changed

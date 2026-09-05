@@ -1,7 +1,7 @@
 {
   "id": "vault-in-vault",
   "name": "Vault in Vault",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "minAppVersion": "1.5.0",
   "description": "Encrypt selected files and lock plaintext after tabs close or on demand.",
   "author": "Fan Fei",

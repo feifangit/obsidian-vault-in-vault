@@ -130,7 +130,7 @@ To share one policy with the companion Go CLI, create `.ageconfig` in the vault 
 
 An explicitly supplied `extensions` array must not be empty.
 
-When `.ageconfig` exists, it takes precedence over the extension and exclusion lists in `data.json`. The plugin displays those shared fields as read-only; use **Reload .ageconfig** after editing the file. `data.json` remains the fallback when `.ageconfig` is absent. An invalid `.ageconfig` blocks encryption instead of silently falling back to a broader policy. Neither file stores the password.
+When `.ageconfig` exists, it takes precedence over the extension and exclusion lists in `data.json`. The plugin displays those shared fields as read-only. The settings page can open the file in the system default editor or reveal it in Finder/the desktop file manager; use **Reload .ageconfig** after saving. `data.json` remains the fallback when `.ageconfig` is absent. An invalid `.ageconfig` blocks encryption instead of silently falling back to a broader policy. Neither file stores the password.
 
 ## Security model
 

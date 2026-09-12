@@ -11,7 +11,7 @@ The project follows [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Restored compatibility with Obsidian 1.5.0 by replacing file lookups introduced in 1.5.7 with the earlier abstract-file API.
-- Updated settings headings and composite icon elements to follow Obsidian's UI guidelines.
+- Updated settings headings and composite icon elements to follow Obsidian's UI guidelines, including removing the redundant plugin-name heading.
 
 ### Changed
 

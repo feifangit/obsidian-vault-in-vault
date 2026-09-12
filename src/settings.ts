@@ -18,7 +18,6 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
   override display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName("Vault in Vault").setHeading();
     containerEl.createEl("p", {
       text: `These settings belong to this vault. If ${AGE_CONFIG_PATH} exists in the vault root, it supplies the protected file types and excluded paths for both Vault in Vault and the Go CLI.`
     });

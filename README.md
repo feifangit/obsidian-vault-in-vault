@@ -1,10 +1,16 @@
 # Vault in Vault
 
-Obsidian normally stores notes and attachments as ordinary files. That makes a vault portable and easy to back up, but it also means that anyone who can browse a copied or synchronized vault can read those files directly.
+Keep private notes and images encrypted inside your Obsidian vault, and unlock them only when you need them.
 
-Vault in Vault lets you lock private notes and images with a password without moving them out of your vault. Locked files stay in the same folders, but their contents are encrypted. When you need one, click it, enter the password, and continue using Obsidian's normal editor or image preview. When the last protected plaintext tab closes, choose whether to lock that file again, lock every exposed file, or leave it unlocked for now.
+Vault in Vault helps you:
 
-This is useful for journals, personal records, work notes, and images that should not remain readable in backups or synchronized vault copies. File and folder names remain visible; Vault in Vault protects file contents, not the shape of the vault.
+- **Protect sensitive content at rest.** Encrypt journals, personal records, work notes, and images that should not remain readable in copied, backed-up, or synchronized vaults.
+- **Keep files where they belong.** Locked files stay in their original folders as standard password-encrypted `.age` files.
+- **Use Obsidian normally while unlocked.** Open a protected file, enter its password, and continue with Obsidian's native editor, image preview, links, and search.
+- **Lock plaintext again without leaving Obsidian.** Encrypt one file when its last tab closes, lock every exposed file on demand, or enable automatic locking after Vault inactivity.
+- **Choose what is protected.** Configure file extensions and exclude public folders, templates, or individual files with a Vault-wide `.ageconfig` policy.
+
+Vault in Vault protects file contents. File names and folder structure remain visible.
 
 > [!WARNING]
 > Vault in Vault writes plaintext to disk while a file is unlocked. Keep backups and read the [security model](#security-model) before using it with important data. This project has not received an independent security audit.
@@ -178,7 +184,7 @@ The plugin has no telemetry, advertisements, account requirement, network servic
 
 ## Manual installation
 
-Vault in Vault is currently a pre-release. To install a local build, use Node.js 20 or newer:
+To install a local development build, use Node.js 20 or newer:
 
 ```bash
 npm ci
@@ -213,15 +219,16 @@ Tests cover age round trips, a Go-generated age fixture, wrong passwords, Unicod
 2. Run `npm run check` and test the build in a disposable vault.
 3. Push the commit and its tag. The tag must exactly match the version, with no `v` prefix.
 4. The release workflow builds the plugin, attests the three Obsidian assets, and creates a draft GitHub Release.
-5. Review the draft release notes and publish it.
+5. Open the draft, add release notes, and verify that `main.js`, `manifest.json`, and `styles.css` appear as separate downloadable assets.
+6. Select **Publish release**. A draft is not installable by Obsidian and is not ready for Community submission.
 
-The GitHub Release must contain `main.js`, `manifest.json`, and `styles.css`. Obsidian downloads these assets from the release whose tag matches `manifest.json.version`.
+The workflow is the normal **Create a release** step; there is no need to create a second release or upload the files manually. Obsidian downloads these assets from the published release whose tag matches `manifest.json.version`.
 
 ## Compatibility
 
 Vault in Vault uses [`age-encryption`](https://github.com/FiloSottile/typage) with an age scrypt work factor of 14. Files are compatible with standard passphrase-encrypted age files. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependency notices.
 
-Desktop support is declared while the pre-release is being tested. Mobile support may be enabled after the same file lifecycle has been verified on iOS and Android.
+Vault in Vault is desktop-only because opening and revealing `.ageconfig` uses Electron and desktop filesystem APIs. Mobile is not currently supported.
 
 If you're also using Obsidian calendar plugin, you may take a look at the updated version which support `.md.age` extension.
 - https://github.com/feifangit/obsidian-calendar-plugin

@@ -1,10 +1,16 @@
 # Vault in Vault
 
-Obsidian 通常把笔记和附件保存为普通文件。这让 Vault 很容易迁移、同步和备份，但也意味着任何能够浏览 Vault 副本的人，都可以直接读取里面的内容。
+把私密笔记和图片加密保存在 Obsidian Vault 中，只在需要时解锁。
 
-Vault in Vault 让你用一个密码锁住私密笔记和图片，不需要把它们移出 Vault。锁定后的文件仍留在原来的目录中，但内容已经加密。需要使用时，点击文件、输入密码，就可以继续使用 Obsidian 原生编辑器或图片预览。关闭最后一个仍打开的受保护明文 Tab 时，可以选择重新加密刚关闭的文件、加密全部暴露的明文，或者暂时保持原样。
+Vault in Vault 可以帮你：
 
-它适合保护日记、个人资料、工作笔记和不希望在备份或同步副本中保持可读的图片。文件名和目录结构仍然可见；Vault in Vault 保护的是文件内容，而不是隐藏整个 Vault 的结构。
+- **保护静态文件内容。** 加密日记、个人资料、工作笔记和图片，避免它们在 Vault 副本、备份或同步目录中保持可读。
+- **保留原来的文件位置。** 锁定后的文件仍在原目录中，并保存为标准的密码加密 `.age` 文件。
+- **解锁后正常使用 Obsidian。** 点击受保护文件并输入密码，即可继续使用原生编辑器、图片预览、链接和搜索。
+- **不离开 Obsidian 就能重新锁定。** 最后一个 Tab 关闭时加密当前文件、随时锁定全部暴露的明文，或在 Vault 闲置一段时间后自动锁定。
+- **决定哪些内容需要保护。** 通过 Vault 级 `.ageconfig` 设置文件扩展名，并排除公开目录、模板或单独文件。
+
+Vault in Vault 保护文件内容，但不会隐藏文件名和目录结构。
 
 > [!WARNING]
 > 文件解锁期间，明文会真实写入磁盘。请先备份，并在用于重要数据前理解下面的安全边界。本项目尚未经过独立安全审计。
@@ -156,7 +162,7 @@ Ribbon 使用“钥匙 + 小钟”表示 password auto-clear，使用“锁 + �
 
 ## 本地安装
 
-需要 Node.js 20 或更新版本：
+安装本地开发版本需要 Node.js 20 或更新版本：
 
 ```bash
 npm ci
@@ -183,7 +189,9 @@ npm test
 npm run check
 ```
 
-使用 `npm version patch`、`npm version minor` 或 `npm version major` 更新版本。脚本会同步 `package.json`、`manifest.json` 和 `versions.json`。推送不带 `v` 前缀、与 manifest 版本完全一致的 tag 后，GitHub Actions 会构建并生成一个包含三个插件文件的草稿 Release。
+使用 `npm version patch`、`npm version minor` 或 `npm version major` 更新版本。脚本会同步 `package.json`、`manifest.json` 和 `versions.json`。推送不带 `v` 前缀、与 manifest 版本完全一致的 tag 后，GitHub Actions 会构建并生成草稿 Release。这就是正常的 **Create a release** 步骤，不需要再手动创建第二个 Release。
+
+打开草稿，填写 release notes，并确认 `main.js`、`manifest.json` 和 `styles.css` 是三个可以单独下载的附件，然后点击 **Publish release**。草稿状态无法被 Obsidian 安装，也不能用于 Community 提交。
 
 ## 许可证
 

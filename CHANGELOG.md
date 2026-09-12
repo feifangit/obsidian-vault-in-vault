@@ -6,12 +6,15 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.7.3] - 2026-09-05
+## [0.7.3] - 2026-09-11
 
 ### Documentation
 
 - Added screenshots for shared-policy exclusions and session security settings.
 - Added a generated PNG guide to Ribbon security modes and password-status colors.
+- Simplified the README introduction into a scannable explanation of the problems the plugin solves.
+- Clarified how the automated draft Release becomes an installable published Release.
+- Removed unreleased development versions from `versions.json` before the first public Release.
 
 ## [0.7.2] - 2026-09-05
 

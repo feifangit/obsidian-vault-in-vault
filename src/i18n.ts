@@ -1,4 +1,7 @@
-export type PluginLocale = "en" | "zh" | "zh-TW";
+import { JAPANESE } from "./locales/ja";
+import { KOREAN } from "./locales/ko";
+
+export type PluginLocale = "en" | "zh" | "zh-TW" | "ja" | "ko";
 
 const ENGLISH = {
   "common.cancel": "Cancel",
@@ -172,7 +175,7 @@ const ENGLISH = {
   "config.invalidExclude": "invalid exclude path {value}"
 } as const;
 
-type MessageKey = keyof typeof ENGLISH;
+export type MessageKey = keyof typeof ENGLISH;
 type MessageVariables = Readonly<Record<string, string | number>>;
 
 const SIMPLIFIED_CHINESE: Record<MessageKey, string> = {
@@ -496,7 +499,9 @@ const TRADITIONAL_CHINESE: Record<MessageKey, string> = {
 const TRANSLATIONS: Record<PluginLocale, Record<MessageKey, string>> = {
   en: ENGLISH,
   zh: SIMPLIFIED_CHINESE,
-  "zh-TW": TRADITIONAL_CHINESE
+  "zh-TW": TRADITIONAL_CHINESE,
+  ja: JAPANESE,
+  ko: KOREAN
 };
 
 let currentLocale: PluginLocale = "en";
@@ -513,6 +518,8 @@ export function resolveLocale(language: string): PluginLocale {
     return "zh-TW";
   }
   if (normalized === "zh" || normalized.startsWith("zh-")) return "zh";
+  if (normalized === "ja" || normalized.startsWith("ja-")) return "ja";
+  if (normalized === "ko" || normalized.startsWith("ko-")) return "ko";
   return "en";
 }
 

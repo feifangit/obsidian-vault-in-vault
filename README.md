@@ -17,7 +17,7 @@ Vault in Vault protects file contents. File names and folder structure remain vi
 
 [简体中文](docs/README.zh-CN.md)
 
-The plugin interface follows Obsidian's language setting. English, Simplified Chinese, and Traditional Chinese are currently included.
+The plugin interface follows Obsidian's language setting. English, Simplified Chinese, Traditional Chinese, Japanese, and Korean are currently included.
 
 ## Install from Obsidian Community plugins
 

@@ -8,7 +8,7 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Added automatic UI localization based on Obsidian's language setting, starting with English, Simplified Chinese, and Traditional Chinese.
+- Added automatic UI localization based on Obsidian's language setting, starting with English, Simplified Chinese, Traditional Chinese, Japanese, and Korean.
 
 ### Changed
 

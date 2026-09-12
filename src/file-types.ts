@@ -49,7 +49,7 @@ export function classifyAgePath(path: string): EncryptedFileType {
 export function isProtectedPlainPath(
   path: string,
   protectedExtensions: readonly string[],
-  configDir = ".obsidian",
+  configDir: string,
   excludedPaths: readonly string[] = []
 ): boolean {
   const normalizedConfigDir = configDir.replace(/^\/+|\/+$/g, "");

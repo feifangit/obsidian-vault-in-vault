@@ -18,7 +18,7 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
   override display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Vault in Vault" });
+    new Setting(containerEl).setName("Vault in Vault").setHeading();
     containerEl.createEl("p", {
       text: `These settings belong to this vault. If ${AGE_CONFIG_PATH} exists in the vault root, it supplies the protected file types and excluded paths for both Vault in Vault and the Go CLI.`
     });
@@ -126,7 +126,7 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
         });
       });
 
-    containerEl.createEl("h3", { text: "Session security" });
+    new Setting(containerEl).setName("Session security").setHeading();
     containerEl.createEl("p", {
       cls: "setting-item-description",
       text: "These two timers are mutually exclusive. Passwords remain in memory only and are never restored after Obsidian restarts."
@@ -171,22 +171,16 @@ function securityTimerSetting(
   mode: SecurityTimerMode
 ): Setting {
   const setting = new Setting(containerEl).setName(label);
-  const document = containerEl.ownerDocument;
-  const icon = document.createElement("span");
-  icon.className = "vault-in-vault-setting-mode-icon";
+  const icon = setting.nameEl.createSpan({ cls: "vault-in-vault-setting-mode-icon" });
   icon.setAttribute("aria-hidden", "true");
 
   const icons = getSecurityModeIcon(mode);
-  const base = document.createElement("span");
-  base.className = "vault-in-vault-setting-base-icon";
+  const base = icon.createSpan({ cls: "vault-in-vault-setting-base-icon" });
   setIcon(base, icons.baseIcon);
-  icon.append(base);
 
   if (icons.badgeIcon !== null) {
-    const badge = document.createElement("span");
-    badge.className = "vault-in-vault-setting-mode-badge";
+    const badge = icon.createSpan({ cls: "vault-in-vault-setting-mode-badge" });
     setIcon(badge, icons.badgeIcon);
-    icon.append(badge);
   }
 
   setting.nameEl.prepend(icon);

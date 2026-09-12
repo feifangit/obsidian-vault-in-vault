@@ -37,14 +37,14 @@ describe("isProtectedPlainPath", () => {
   const extensions = ["md", "jpg", "png"];
 
   it("tracks Markdown and common images", () => {
-    expect(isProtectedPlainPath("新笔记.md", extensions)).toBe(true);
-    expect(isProtectedPlainPath("附件/照片.PNG", extensions)).toBe(true);
+    expect(isProtectedPlainPath("新笔记.md", extensions, ".obsidian")).toBe(true);
+    expect(isProtectedPlainPath("附件/照片.PNG", extensions, ".obsidian")).toBe(true);
   });
 
   it("does not track age files, Obsidian metadata, or unsupported files", () => {
-    expect(isProtectedPlainPath("新笔记.md.age", extensions)).toBe(false);
-    expect(isProtectedPlainPath(".obsidian/plugins/readme.md", extensions)).toBe(false);
-    expect(isProtectedPlainPath("录音.wav", extensions)).toBe(false);
+    expect(isProtectedPlainPath("新笔记.md.age", extensions, ".obsidian")).toBe(false);
+    expect(isProtectedPlainPath(".obsidian/plugins/readme.md", extensions, ".obsidian")).toBe(false);
+    expect(isProtectedPlainPath("录音.wav", extensions, ".obsidian")).toBe(false);
   });
 
   it("excludes a customized vault configuration directory", () => {
@@ -67,7 +67,7 @@ describe("isProtectedPlainPath", () => {
   });
 
   it("always excludes the shared policy file", () => {
-    expect(isProtectedPlainPath(".ageconfig", extensions)).toBe(false);
+    expect(isProtectedPlainPath(".ageconfig", extensions, ".obsidian")).toBe(false);
   });
 });
 

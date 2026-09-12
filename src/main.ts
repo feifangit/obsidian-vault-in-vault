@@ -10,7 +10,6 @@ import {
   WorkspaceLeaf
 } from "obsidian";
 import { shell } from "electron";
-import { join } from "path";
 
 import { AGE_VIEW_TYPE, EncryptedAgeView } from "./age-view";
 import { AGE_CONFIG_PATH, AgeConfigPolicy, normalizeExcludeList, parseAgeConfig } from "./age-config";
@@ -210,7 +209,7 @@ export default class VaultInVaultPlugin extends Plugin {
     }
     await leaf.openFile(plaintextFile, { active: true });
     this.app.workspace.setActiveLeaf(leaf, { focus: true });
-    const encryptedSource = this.app.vault.getFileByPath(file.path);
+    const encryptedSource = this.getFileByPath(file.path);
     if (encryptedSource !== null) await this.app.vault.delete(encryptedSource);
   }
 
@@ -269,7 +268,7 @@ export default class VaultInVaultPlugin extends Plugin {
     if (!(adapter instanceof FileSystemAdapter)) {
       throw new Error("Opening external files requires a desktop filesystem vault.");
     }
-    return join(adapter.getBasePath(), AGE_CONFIG_PATH);
+    return adapter.getFullPath(AGE_CONFIG_PATH);
   }
 
   async reloadAgeConfig(showNotice = true): Promise<void> {
@@ -516,7 +515,7 @@ export default class VaultInVaultPlugin extends Plugin {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     if (this.autoLockInProgress) return;
     await this.requireValidProtectionPolicy();
-    const file = this.app.vault.getFileByPath(path);
+    const file = this.getFileByPath(path);
     if (
       file === null ||
       !isProtectedPlainPath(
@@ -543,7 +542,7 @@ export default class VaultInVaultPlugin extends Plugin {
     }
 
     await this.requireValidProtectionPolicy();
-    const currentFile = this.app.vault.getFileByPath(path);
+    const currentFile = this.getFileByPath(path);
     if (
       currentFile === null ||
       !isProtectedPlainPath(
@@ -671,7 +670,7 @@ export default class VaultInVaultPlugin extends Plugin {
     removeEncryptedSource = true
   ): Promise<TFile> {
     const targetPath = classifyAgePath(file.path).originalPath;
-    const existingTarget = this.app.vault.getFileByPath(targetPath);
+    const existingTarget = this.getFileByPath(targetPath);
     if (existingTarget !== null) {
       const existing = new Uint8Array(await this.app.vault.readBinary(existingTarget));
       if (!bytesEqual(existing, plaintext)) {
@@ -698,7 +697,7 @@ export default class VaultInVaultPlugin extends Plugin {
     const sourcePath = file.path;
     const targetPath = `${sourcePath}.age`;
     const source = new Uint8Array(await this.app.vault.readBinary(file));
-    const existingTarget = this.app.vault.getFileByPath(targetPath);
+    const existingTarget = this.getFileByPath(targetPath);
 
     if (existingTarget !== null) {
       try {
@@ -840,7 +839,7 @@ export default class VaultInVaultPlugin extends Plugin {
     });
     const button = control.createEl("button", { text: "Decrypt images" });
     button.addEventListener("click", () => {
-      const source = this.app.vault.getFileByPath(context.sourcePath);
+      const source = this.getFileByPath(context.sourcePath);
       if (source === null) return;
       button.disabled = true;
       void this.decryptImagesForMarkdownFile(source, true)
@@ -857,6 +856,11 @@ export default class VaultInVaultPlugin extends Plugin {
         leaf.view.previewMode.rerender(true);
       }
     });
+  }
+
+  private getFileByPath(path: string): TFile | null {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    return file instanceof TFile ? file : null;
   }
 
   private clearPassword(): void {

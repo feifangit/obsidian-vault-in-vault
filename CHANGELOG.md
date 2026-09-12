@@ -6,6 +6,17 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-09-12
+
+### Fixed
+
+- Restored compatibility with Obsidian 1.5.0 by replacing file lookups introduced in 1.5.7 with the earlier abstract-file API.
+- Updated settings headings and composite icon elements to follow Obsidian's UI guidelines.
+
+### Changed
+
+- Release drafts now contain only the three assets supported by Obsidian: `main.js`, `manifest.json`, and `styles.css`.
+
 ## [0.7.3] - 2026-09-11
 
 ### Documentation

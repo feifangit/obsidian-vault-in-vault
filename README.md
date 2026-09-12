@@ -17,6 +17,8 @@ Vault in Vault protects file contents. File names and folder structure remain vi
 
 [简体中文](docs/README.zh-CN.md)
 
+The plugin interface follows Obsidian's language setting. English, Simplified Chinese, and Traditional Chinese are currently included.
+
 ## Install from Obsidian Community plugins
 
 1. Open **Settings -> Community plugins** in Obsidian.
@@ -233,6 +235,8 @@ Tests cover age round trips, a Go-generated age fixture, wrong passwords, Unicod
 The workflow is the normal **Create a release** step; there is no need to create a second release or upload the files manually. Obsidian downloads these assets from the published release whose tag matches `manifest.json.version`.
 
 ## Compatibility
+
+Vault in Vault 0.8.0 and later requires Obsidian 1.8.7 or newer so it can follow Obsidian's selected interface language.
 
 Vault in Vault uses [`age-encryption`](https://github.com/FiloSottile/typage) with an age scrypt work factor of 14. Files are compatible with standard passphrase-encrypted age files. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependency notices.
 

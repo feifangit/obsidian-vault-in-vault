@@ -1,6 +1,7 @@
 import {
   FileSystemAdapter,
   FileView,
+  getLanguage,
   MarkdownPostProcessorContext,
   MarkdownView,
   Notice,
@@ -26,6 +27,7 @@ import {
   normalizeExtensionList
 } from "./file-types";
 import { PasswordModal } from "./password-modal";
+import { setLanguage, t } from "./i18n";
 import { ProtectFilesModal, ProtectionSummary } from "./protect-files-modal";
 import { VaultInVaultSettingTab } from "./settings";
 import { ClosedFileProtectionModal } from "./tab-close-modal";
@@ -57,7 +59,7 @@ const DEFAULT_SETTINGS: VaultInVaultSettings = {
 
 class PasswordCancelledError extends Error {
   constructor() {
-    super("Password entry was cancelled.");
+    super(t("error.cancelled"));
     this.name = "PasswordCancelledError";
   }
 }
@@ -86,10 +88,11 @@ export default class VaultInVaultPlugin extends Plugin {
   private lastActivityIndicatorUpdateAt = 0;
 
   override async onload(): Promise<void> {
+    setLanguage(getLanguage());
     await this.loadSettings();
 
     if (this.sharedAgeConfigError !== null) {
-      new Notice(`Vault in Vault: invalid ${AGE_CONFIG_PATH}: ${this.sharedAgeConfigError}`);
+      new Notice(t("notice.invalidConfig", { error: this.sharedAgeConfigError }));
     }
 
     this.registerView(AGE_VIEW_TYPE, (leaf) => new EncryptedAgeView(leaf, this));
@@ -98,13 +101,13 @@ export default class VaultInVaultPlugin extends Plugin {
 
     this.addCommand({
       id: "encrypt-and-lock-vault-now",
-      name: "Encrypt and lock vault now",
+      name: t("command.encryptLock"),
       callback: () => void this.encryptAndLock(false).catch((error) => this.reportError(error))
     });
 
     this.addCommand({
       id: "decrypt-images-in-current-note",
-      name: "Decrypt encrypted images in current note",
+      name: t("command.decryptImages"),
       checkCallback: (checking) => {
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (view?.file === null || view?.file === undefined) return false;
@@ -118,14 +121,14 @@ export default class VaultInVaultPlugin extends Plugin {
 
     this.addCommand({
       id: "forget-cached-password",
-      name: "Forget cached vault password",
+      name: t("command.forgetPassword"),
       callback: () => {
         this.clearPassword();
-        new Notice("Cached vault password cleared; configuration locked.");
+        new Notice(t("notice.passwordCleared"));
       }
     });
 
-    this.ribbonLockEl = this.addRibbonIcon("lock-keyhole", "Encrypt and lock vault", () => {
+    this.ribbonLockEl = this.addRibbonIcon("lock-keyhole", t("ribbon.encryptLock"), () => {
       void this.encryptAndLock(false).catch((error) => this.reportError(error));
     });
     this.ribbonLockEl.addClass("vault-in-vault-ribbon-lock");
@@ -229,11 +232,11 @@ export default class VaultInVaultPlugin extends Plugin {
 
   getProtectionPolicySource(): string {
     if (this.sharedAgeConfigError !== null) {
-      return `${AGE_CONFIG_PATH} is invalid: ${this.sharedAgeConfigError}`;
+      return t("settings.policyInvalid", { error: this.sharedAgeConfigError });
     }
     return this.sharedAgeConfig === null
-      ? "Plugin settings (data.json)"
-      : `${AGE_CONFIG_PATH} in the vault root`;
+      ? t("settings.policyLocal")
+      : t("settings.policyShared");
   }
 
   isSharedAgeConfigActive(): boolean {
@@ -263,10 +266,10 @@ export default class VaultInVaultPlugin extends Plugin {
   }
 
   private getAgeConfigSystemPath(): string {
-    if (!this.sharedAgeConfigExists) throw new Error(`${AGE_CONFIG_PATH} does not exist.`);
+    if (!this.sharedAgeConfigExists) throw new Error(t("error.configMissing"));
     const { adapter } = this.app.vault;
     if (!(adapter instanceof FileSystemAdapter)) {
-      throw new Error("Opening external files requires a desktop filesystem vault.");
+      throw new Error(t("error.desktopOnly"));
     }
     return adapter.getFullPath(AGE_CONFIG_PATH);
   }
@@ -277,20 +280,20 @@ export default class VaultInVaultPlugin extends Plugin {
     this.sharedAgeConfigExists = false;
     try {
       if (!(await this.app.vault.adapter.exists(AGE_CONFIG_PATH))) {
-        if (showNotice) new Notice(`${AGE_CONFIG_PATH} not found; using plugin settings.`);
+        if (showNotice) new Notice(t("notice.configMissing"));
         return;
       }
       this.sharedAgeConfigExists = true;
       const contents = await this.app.vault.adapter.read(AGE_CONFIG_PATH);
       if (new TextEncoder().encode(contents).byteLength > 64 * 1024) {
-        throw new Error("the file is larger than 64 KiB");
+        throw new Error(t("error.configTooLarge"));
       }
       this.sharedAgeConfig = parseAgeConfig(contents);
-      if (showNotice) new Notice(`Reloaded protection policy from ${AGE_CONFIG_PATH}.`);
+      if (showNotice) new Notice(t("notice.configReloaded"));
     } catch (error) {
       this.sharedAgeConfigError = error instanceof Error ? error.message : String(error);
       if (showNotice) {
-        new Notice(`Vault in Vault: invalid ${AGE_CONFIG_PATH}: ${this.sharedAgeConfigError}`);
+        new Notice(t("notice.invalidConfig", { error: this.sharedAgeConfigError }));
       }
     }
   }
@@ -299,9 +302,9 @@ export default class VaultInVaultPlugin extends Plugin {
     if (this.configurationUnlocked) return true;
     try {
       await this.getPasswordForVaultOperation(
-        "Unlock configuration",
-        "Verify the vault password before editing protected file types.",
-        "Unlock"
+        t("operation.unlockConfigTitle"),
+        t("operation.unlockConfigDescription"),
+        t("common.unlock")
       );
       this.configurationUnlocked = true;
       return true;
@@ -374,7 +377,7 @@ export default class VaultInVaultPlugin extends Plugin {
   private async requireValidProtectionPolicy(): Promise<void> {
     await this.reloadAgeConfig(false);
     if (this.sharedAgeConfigError !== null) {
-      throw new Error(`Invalid ${AGE_CONFIG_PATH}: ${this.sharedAgeConfigError}`);
+      throw new Error(t("error.invalidConfig", { error: this.sharedAgeConfigError }));
     }
   }
 
@@ -406,20 +409,20 @@ export default class VaultInVaultPlugin extends Plugin {
       return { plaintext, password: answer.password };
     } catch {
       this.clearPassword();
-      throw new Error("Wrong password, damaged data, or an unsupported age file.");
+      throw new Error(t("error.decryptFailed"));
     }
   }
 
   private async encryptAndLock(alreadyConfirmed = false): Promise<void> {
     if (this.autoLockInProgress) {
-      new Notice("Vault in Vault is already automatically locking this vault.");
+      new Notice(t("notice.alreadyLocking"));
       return;
     }
     await this.requireValidProtectionPolicy();
     let files = this.getProtectedPlaintextFiles();
     if (files.length === 0) {
       this.clearPassword();
-      new Notice("No matching plaintext files found; cached password cleared.");
+      new Notice(t("notice.noPlaintext"));
       return;
     }
 
@@ -439,24 +442,24 @@ export default class VaultInVaultPlugin extends Plugin {
     }
 
     const password = await this.getPasswordForVaultOperation(
-      "Encrypt vault files",
-      `Enter the vault password for ${files.length} matching plaintext ${files.length === 1 ? "file" : "files"}.`,
-      "Encrypt"
+      t("operation.encryptVaultTitle"),
+      t(files.length === 1 ? "operation.encryptVaultOne" : "operation.encryptVaultMany", { count: files.length }),
+      t("common.encrypt")
     );
-    const progress = new Notice(`Encrypting 0/${files.length} files…`, 0);
+    const progress = new Notice(t("notice.encryptProgress", { done: 0, total: files.length }), 0);
     let completed = 0;
     try {
       for (const file of files) {
         await this.encryptPlaintextFile(file, password);
         completed++;
-        progress.setMessage(`Encrypting ${completed}/${files.length} files…`);
+        progress.setMessage(t("notice.encryptProgress", { done: completed, total: files.length }));
       }
     } finally {
       progress.hide();
     }
 
     this.clearPassword();
-    new Notice(`Encrypted and locked ${completed} ${completed === 1 ? "file" : "files"}.`);
+    new Notice(t(completed === 1 ? "notice.encryptedLockedOne" : "notice.encryptedLockedMany", { count: completed }));
   }
 
   private captureOpenLeafFiles(): void {
@@ -556,12 +559,12 @@ export default class VaultInVaultPlugin extends Plugin {
       return;
     }
     const password = await this.getPasswordForVaultOperation(
-      "Encrypt closed file",
-      `Enter the vault password for ${path}.`,
-      "Encrypt"
+      t("operation.encryptClosedTitle"),
+      t("operation.encryptClosedDescription", { path }),
+      t("common.encrypt")
     );
     await this.encryptPlaintextFile(currentFile, password);
-    new Notice(`Encrypted ${path}.`);
+    new Notice(t("notice.encryptedFile", { path }));
   }
 
   private isPathOpenInAnyLeaf(path: string): boolean {
@@ -640,8 +643,8 @@ export default class VaultInVaultPlugin extends Plugin {
       const answer = await EncryptionPasswordModal.ask(this.app, {
         title,
         description: verificationFile === undefined
-          ? `${description} No existing age file is available, so enter it twice.`
-          : `${description} It will be verified against an existing age file.`,
+          ? t("operation.noVerificationFile", { description })
+          : t("operation.verifyExistingFile", { description }),
         submitLabel,
         requiresConfirmation: verificationFile === undefined,
         requiresRememberForSession: this.requiresRememberedPassword()
@@ -653,7 +656,7 @@ export default class VaultInVaultPlugin extends Plugin {
           const ciphertext = new Uint8Array(await this.app.vault.readBinary(verificationFile));
           await decryptWithPassphrase(ciphertext, answer.password);
         } catch {
-          new Notice("That password could not unlock an existing age file. Try again.");
+          new Notice(t("notice.wrongExistingPassword"));
           continue;
         }
       }
@@ -674,7 +677,7 @@ export default class VaultInVaultPlugin extends Plugin {
     if (existingTarget !== null) {
       const existing = new Uint8Array(await this.app.vault.readBinary(existingTarget));
       if (!bytesEqual(existing, plaintext)) {
-        throw new Error(`${targetPath} already exists with different content.`);
+        throw new Error(t("error.targetConflict", { path: targetPath }));
       }
       if (removeEncryptedSource) await this.app.vault.delete(file);
       return existingTarget;
@@ -687,7 +690,7 @@ export default class VaultInVaultPlugin extends Plugin {
     const published = new Uint8Array(await this.app.vault.readBinary(created));
     if (!bytesEqual(published, plaintext)) {
       await this.app.vault.delete(created);
-      throw new Error(`Could not verify the decrypted copy of ${targetPath}.`);
+      throw new Error(t("error.verifyPlaintext", { path: targetPath }));
     }
     if (removeEncryptedSource) await this.app.vault.delete(file);
     return created;
@@ -707,7 +710,7 @@ export default class VaultInVaultPlugin extends Plugin {
         const existingPlaintext = await decryptWithPassphrase(existingCiphertext, password);
         if (!bytesEqual(source, existingPlaintext)) throw new Error("content differs");
       } catch {
-        throw new Error(`${targetPath} already exists and does not match ${sourcePath}.`);
+        throw new Error(t("error.encryptedConflict", { target: targetPath, source: sourcePath }));
       }
       await this.app.vault.delete(file);
       return;
@@ -726,13 +729,13 @@ export default class VaultInVaultPlugin extends Plugin {
       }
     } catch {
       await this.app.vault.delete(created);
-      throw new Error(`Could not verify newly encrypted data for ${sourcePath}.`);
+      throw new Error(t("error.verifyCiphertext", { path: sourcePath }));
     }
 
     const latestSource = new Uint8Array(await this.app.vault.readBinary(file));
     if (!bytesEqual(source, latestSource)) {
       await this.app.vault.delete(created);
-      throw new Error(`${sourcePath} changed while it was being encrypted; plaintext was kept.`);
+      throw new Error(t("error.sourceChanged", { path: sourcePath }));
     }
     await this.app.vault.delete(file);
   }
@@ -748,9 +751,9 @@ export default class VaultInVaultPlugin extends Plugin {
     let password = this.sessionPassword;
     if (password === null && promptForPassword) {
       password = await this.getPasswordForVaultOperation(
-        "Decrypt embedded images",
-        `Enter the vault password for ${encryptedImages.length} encrypted image ${encryptedImages.length === 1 ? "file" : "files"}.`,
-        "Decrypt"
+        t("operation.decryptImagesTitle"),
+        t(encryptedImages.length === 1 ? "operation.decryptImagesOne" : "operation.decryptImagesMany", { count: encryptedImages.length }),
+        t("common.decrypt")
       );
     }
     if (password === null) return 0;
@@ -799,7 +802,7 @@ export default class VaultInVaultPlugin extends Plugin {
         count++;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        new Notice(`Could not decrypt ${file.path}: ${message}`);
+        new Notice(t("notice.decryptFileFailed", { path: file.path, error: message }));
       }
     }
     return count;
@@ -835,9 +838,9 @@ export default class VaultInVaultPlugin extends Plugin {
 
     const control = element.createDiv({ cls: "vault-in-vault-embedded-image-control" });
     control.createSpan({
-      text: `${images.length} encrypted ${images.length === 1 ? "image is" : "images are"} available. `
+      text: t(images.length === 1 ? "embedded.availableOne" : "embedded.availableMany", { count: images.length })
     });
-    const button = control.createEl("button", { text: "Decrypt images" });
+    const button = control.createEl("button", { text: t("embedded.decrypt") });
     button.addEventListener("click", () => {
       const source = this.getFileByPath(context.sourcePath);
       if (source === null) return;
@@ -925,7 +928,7 @@ export default class VaultInVaultPlugin extends Plugin {
     try {
       if (snapshot.action === "clear-password") {
         this.clearPassword();
-        new Notice("Vault in Vault: cached password expired and was cleared.");
+        new Notice(t("notice.passwordExpired"));
       } else {
         await this.autoLockAfterIdle();
       }
@@ -941,7 +944,7 @@ export default class VaultInVaultPlugin extends Plugin {
 
     this.autoLockInProgress = true;
     this.autoLockGeneration++;
-    const progress = new Notice("Vault in Vault: automatically locking idle vault…", 0);
+    const progress = new Notice(t("notice.autoLockProgress"), 0);
     try {
       let protectedLeaves = new Map<WorkspaceLeaf, string>();
       const result = await runAutoLockBatch({
@@ -957,7 +960,7 @@ export default class VaultInVaultPlugin extends Plugin {
         protect: (file) => this.encryptPlaintextFile(file, password),
         afterProtected: (file, completed, total) => {
           this.detachLeavesForEncryptedPath(protectedLeaves, file.path);
-          progress.setMessage(`Vault in Vault: automatically locking ${completed}/${total}…`);
+          progress.setMessage(t("notice.autoLockCount", { done: completed, total }));
         }
       });
 
@@ -965,8 +968,8 @@ export default class VaultInVaultPlugin extends Plugin {
       if (result.failures.length === 0) {
         new Notice(
           result.completed === 0
-            ? "Vault locked; no matching plaintext files were found."
-            : `Automatically encrypted and locked ${result.completed} ${result.completed === 1 ? "file" : "files"}.`
+            ? t("notice.vaultLockedEmpty")
+            : t(result.completed === 1 ? "notice.autoLockedOne" : "notice.autoLockedMany", { count: result.completed })
         );
       } else {
         const messages = result.failures.map(({ file, error }) => {
@@ -974,15 +977,22 @@ export default class VaultInVaultPlugin extends Plugin {
           return `${file.path}: ${message}`;
         });
         const preview = messages.slice(0, 3).join("; ");
-        const suffix = messages.length > 3 ? `; and ${messages.length - 3} more` : "";
+        const suffix = messages.length > 3
+          ? t("notice.moreFailures", { count: messages.length - 3 })
+          : "";
         new Notice(
-          `Automatic lock encrypted ${result.completed} files, but ${messages.length} failed. Plaintext was kept. ${preview}${suffix}`,
+          t("notice.autoLockFailures", {
+            completed: result.completed,
+            failed: messages.length,
+            details: preview,
+            suffix
+          }),
           15_000
         );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      new Notice(`Vault in Vault: automatic lock stopped safely: ${message}`, 15_000);
+      new Notice(t("notice.autoLockStopped", { error: message }), 15_000);
     } finally {
       progress.hide();
       this.clearPassword();
@@ -1030,22 +1040,22 @@ export default class VaultInVaultPlugin extends Plugin {
       : Math.max(1, Math.ceil(snapshot.remainingMs / 60_000));
     let label: string;
     if (this.autoLockInProgress) {
-      label = "Vault in Vault is encrypting and locking the vault.";
+      label = t("security.encrypting");
     } else if (snapshot.indicator === "locked") {
       label = this.settings.idleAutoLockMinutes > 0
-        ? "Vault password is not cached; automatic idle lock is not armed."
-        : "Vault password is not cached.";
+        ? t("security.notCachedUnarmed")
+        : t("security.notCached");
     } else if (snapshot.mode === "password-clear") {
-      label = `Vault password is cached; it will be cleared in about ${remaining} ${remaining === 1 ? "minute" : "minutes"}.`;
+      label = t(remaining === 1 ? "security.clearOne" : "security.clearMany", { count: remaining ?? 1 });
     } else if (snapshot.mode === "idle-lock") {
-      label = `Vault password is cached; automatic lock in about ${remaining} ${remaining === 1 ? "minute" : "minutes"} without activity.`;
+      label = t(remaining === 1 ? "security.lockOne" : "security.lockMany", { count: remaining ?? 1 });
     } else {
-      label = "Vault password is cached for this Obsidian session.";
+      label = t("security.cached");
     }
     this.ribbonLockEl.dataset.vaultLockState = this.autoLockInProgress
       ? "warning"
       : snapshot.indicator;
-    this.ribbonLockEl.setAttribute("aria-label", `${label} Click to encrypt and lock now.`);
+    this.ribbonLockEl.setAttribute("aria-label", t("security.clickLock", { status: label }));
   }
 
   private renderRibbonModeIcon(mode: SecurityTimerMode): void {
@@ -1067,7 +1077,7 @@ export default class VaultInVaultPlugin extends Plugin {
   private reportError(error: unknown): void {
     if (this.isCancelledError(error)) return;
     const message = error instanceof Error ? error.message : String(error);
-    new Notice(`Vault in Vault: ${message}`);
+    new Notice(t("notice.error", { error: message }));
   }
 }
 

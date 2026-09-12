@@ -17,6 +17,8 @@ Vault in Vault 保护文件内容，但不会隐藏文件名和目录结构。
 
 [English](../README.md)
 
+插件界面会跟随 Obsidian 的语言设置。目前包含英文、简体中文和繁体中文。
+
 ## 从 Obsidian 社区插件安装
 
 1. 在 Obsidian 中打开 **Settings -> Community plugins**。
@@ -35,7 +37,7 @@ Vault in Vault 目前只支持桌面版。也可以先查看它的 [Obsidian Com
 
 ### 点击加密文件即可打开
 
-需要阅读或编辑时，点击 **Decrypt and open**。
+需要阅读或编辑时，点击 **解密并打开**。
 
 ![加密 Markdown 文件的 Decrypt and open 按钮](images/decrypt-and-open.png)
 
@@ -65,7 +67,7 @@ Vault in Vault 目前只支持桌面版。也可以先查看它的 [Obsidian Com
 
 ### 限制密码在内存中的可用时间
 
-Session security 提供两个互斥选项。**Password auto-clear** 只在固定时间后清除缓存密码；**Auto-lock after Vault inactivity** 会等待 Vault 一段时间没有操作，保存打开的 Markdown 编辑器，加密匹配的明文，关闭已经成功保护的 Tab，最后清除密码。
+**会话安全**提供两个互斥选项。**自动清除密码**只在固定时间后清除缓存密码；**Vault 闲置后自动锁定**会等待 Vault 一段时间没有操作，保存打开的 Markdown 编辑器，加密匹配的明文，关闭已经成功保护的 Tab，最后清除密码。
 
 ![密码自动清除和 Vault idle 自动锁定设置](images/session-security.png)
 
@@ -78,7 +80,7 @@ Ribbon 图标分别表达配置模式和密码状态：
 - 从文件列表直接打开使用密码加密的 `.age` 文件。
 - 原位解密 Markdown 和图片，保留原生编辑、预览、链接、搜索和第三方插件能力。
 - 关闭最后一个受保护明文 Tab 后，可选择加密刚关闭的文件、加密全部匹配明文或暂时保留明文。
-- 提供 **Encrypt and lock vault now** 命令和 Ribbon 锁按钮。
+- 提供 **立即加密并锁定 Vault** 命令和 Ribbon 锁按钮。
 - 用户明确选择后，密码仅缓存在当前插件会话的内存中。
 - Ribbon 锁按钮下方用红、绿、黄状态灯表示密码不可用、已缓存或 timer 即将到期。
 - 可以在固定时间后只清除缓存密码，也可以在当前 Vault 长时间没有操作后自动加密并锁定。
@@ -146,7 +148,7 @@ Ribbon 使用“钥匙 + 小钟”表示 password auto-clear，使用“锁 + �
 - `extensions` 决定哪些明文类型需要保护；它可以省略，省略时使用内置的 Markdown 和常见图片默认类型。显式提供时不能是空数组。
 - `exclude` 可以写相对于 Vault 根目录的单个文件或目录；目录下的全部内容都会跳过。
 - 路径区分大小写，不支持 `*`、`?` 等通配符，也不能使用绝对路径或 `..`。
-- `.ageconfig` 存在时优先于 `data.json`。设置页会显示策略来源，并把共享的扩展名和排除项显示为只读；可以用设置页按钮在系统默认编辑器中打开它，或在 Finder/文件管理器中显示。保存后点击 **Reload .ageconfig**。
+- `.ageconfig` 存在时优先于 `data.json`。设置页会显示策略来源，并把共享的扩展名和排除项显示为只读；可以用设置页按钮在系统默认编辑器中打开它，或在 Finder/文件管理器中显示。保存后点击 **重新加载 .ageconfig**。
 - 配置无效时插件会阻止加密，不会悄悄退回到更宽泛的默认策略。`.ageconfig` 和 `data.json` 都不会保存密码。
 
 如果只想配置排除路径，可以这样写：
@@ -200,6 +202,10 @@ npm run check
 使用 `npm version patch`、`npm version minor` 或 `npm version major` 更新版本。脚本会同步 `package.json`、`manifest.json` 和 `versions.json`。推送不带 `v` 前缀、与 manifest 版本完全一致的 tag 后，GitHub Actions 会构建并生成草稿 Release。这就是正常的 **Create a release** 步骤，不需要再手动创建第二个 Release。
 
 打开草稿，填写 release notes，并确认 `main.js`、`manifest.json` 和 `styles.css` 是三个可以单独下载的附件，然后点击 **Publish release**。草稿状态无法被 Obsidian 安装，也不能用于 Community 提交。
+
+## 兼容性
+
+Vault in Vault 0.8.0 及后续版本需要 Obsidian 1.8.7 或更新版本，以便插件跟随 Obsidian 当前选择的界面语言。
 
 ## 许可证
 

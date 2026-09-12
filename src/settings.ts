@@ -1,8 +1,9 @@
 import { PluginSettingTab, setIcon, Setting } from "obsidian";
 
 import type VaultInVaultPlugin from "./main";
-import { AGE_CONFIG_PATH, normalizeExcludeList } from "./age-config";
+import { normalizeExcludeList } from "./age-config";
 import { formatExtensionList, normalizeExtensionList } from "./file-types";
+import { t } from "./i18n";
 import {
   getSecurityModeIcon,
   SECURITY_TIMEOUT_OPTIONS,
@@ -19,53 +20,53 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("p", {
-      text: `These settings belong to this vault. If ${AGE_CONFIG_PATH} exists in the vault root, it supplies the protected file types and excluded paths for both Vault in Vault and the Go CLI.`
+      text: t("settings.intro")
     });
 
     const unlocked = this.plugin.isConfigurationUnlocked();
     const sharedPolicy = this.plugin.isSharedAgeConfigActive();
 
     new Setting(containerEl)
-      .setName("Protection policy source")
+      .setName(t("settings.policySource"))
       .setDesc(this.plugin.getProtectionPolicySource())
       .addButton((button) => {
-        button.setButtonText(`Reload ${AGE_CONFIG_PATH}`).onClick(async () => {
+        button.setButtonText(t("settings.reloadConfig")).onClick(async () => {
           await this.plugin.reloadAgeConfig();
           this.display();
         });
       });
 
     new Setting(containerEl)
-      .setName(`Edit ${AGE_CONFIG_PATH}`)
+      .setName(t("settings.editConfig"))
       .setDesc(
         this.plugin.canOpenAgeConfigExternally()
-          ? "Open the shared policy with the operating system's default editor, or reveal it in the file manager."
-          : `Create ${AGE_CONFIG_PATH} in the vault root, then reload the policy to enable these actions.`
+          ? t("settings.editConfigAvailable")
+          : t("settings.editConfigUnavailable")
       )
       .addButton((button) => {
         button
-          .setButtonText("Open in default editor")
+          .setButtonText(t("settings.openEditor"))
           .setDisabled(!this.plugin.canOpenAgeConfigExternally())
           .onClick(() => void this.plugin.openAgeConfigExternally());
       })
       .addButton((button) => {
         button
-          .setButtonText("Show in file manager")
+          .setButtonText(t("settings.showFileManager"))
           .setDisabled(!this.plugin.canOpenAgeConfigExternally())
           .onClick(() => this.plugin.revealAgeConfigInFileManager());
       });
 
     new Setting(containerEl)
-      .setName("Protected file types")
+      .setName(t("settings.protectedTypes"))
       .setDesc(
         sharedPolicy
-          ? `Managed by ${AGE_CONFIG_PATH}. Edit that file outside this settings page, then reload the policy.`
-          : "Matching plaintext files can be encrypted when their last tab closes or when you lock the vault."
+          ? t("settings.protectedTypesShared")
+          : t("settings.protectedTypesLocal")
       )
       .addText((text) => {
         text.setValue(formatExtensionList(this.plugin.getProtectedExtensions()));
         text.setDisabled(sharedPolicy || !unlocked);
-        text.inputEl.setAttribute("aria-label", "Protected file extensions");
+        text.inputEl.setAttribute("aria-label", t("settings.protectedTypesAria"));
         text.onChange((value) => {
           if (sharedPolicy || !this.plugin.isConfigurationUnlocked()) return;
           const extensions = normalizeExtensionList(value);
@@ -76,29 +77,29 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
       })
       .addButton((button) => {
         if (unlocked) {
-          button.setButtonText("Lock settings").onClick(() => {
+          button.setButtonText(t("settings.lock")).onClick(() => {
             this.plugin.lockConfiguration();
             this.display();
           });
         } else {
-          button.setButtonText(sharedPolicy ? "Unlock other settings" : "Unlock and edit").onClick(async () => {
+          button.setButtonText(sharedPolicy ? t("settings.unlockOther") : t("settings.unlockEdit")).onClick(async () => {
             if (await this.plugin.unlockConfiguration()) this.display();
           });
         }
       });
 
     new Setting(containerEl)
-      .setName("Excluded files and folders")
+      .setName(t("settings.excludedPaths"))
       .setDesc(
         sharedPolicy
-          ? `Managed by ${AGE_CONFIG_PATH}. Paths are relative to the vault root.`
-          : "One vault-relative file or folder path per line. A folder excludes everything inside it. Wildcards are not supported."
+          ? t("settings.excludedPathsShared")
+          : t("settings.excludedPathsLocal")
       )
       .addTextArea((text) => {
         text.setValue(this.plugin.getExcludedPaths().join("\n"));
         text.setDisabled(sharedPolicy || !unlocked);
         text.inputEl.rows = 4;
-        text.inputEl.setAttribute("aria-label", "Excluded vault paths");
+        text.inputEl.setAttribute("aria-label", t("settings.excludedPathsAria"));
         text.onChange((value) => {
           if (sharedPolicy || !this.plugin.isConfigurationUnlocked()) return;
           try {
@@ -111,10 +112,8 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Automatically decrypt embedded images")
-      .setDesc(
-        "When a decrypted or opened Markdown file references an encrypted image, decrypt the image in place if the vault password is cached."
-      )
+      .setName(t("settings.autoImages"))
+      .setDesc(t("settings.autoImagesDescription"))
       .addToggle((toggle) => {
         toggle.setValue(this.plugin.settings.autoDecryptEmbeddedImages);
         toggle.setDisabled(!unlocked);
@@ -125,16 +124,14 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl).setName("Session security").setHeading();
+    new Setting(containerEl).setName(t("settings.sessionSecurity")).setHeading();
     containerEl.createEl("p", {
       cls: "setting-item-description",
-      text: "These two timers are mutually exclusive. Passwords remain in memory only and are never restored after Obsidian restarts."
+      text: t("settings.sessionDescription")
     });
 
-    securityTimerSetting(containerEl, "Password auto-clear", "password-clear")
-      .setDesc(
-        "Clear the cached password after a fixed maximum time. User activity does not extend this timer, and plaintext files remain open. Enabling this disables automatic idle lock."
-      )
+    securityTimerSetting(containerEl, t("settings.passwordClear"), "password-clear")
+      .setDesc(t("settings.passwordClearDescription"))
       .addDropdown((dropdown) => {
         addTimeoutOptions(dropdown);
         dropdown.setValue(String(this.plugin.settings.passwordCacheTimeoutMinutes));
@@ -144,10 +141,8 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
         });
       });
 
-    securityTimerSetting(containerEl, "Auto-lock after Vault inactivity", "idle-lock")
-      .setDesc(
-        "After no keyboard, pointer, touch, scroll, editor, or tab activity in this Vault, save editors, encrypt matching plaintext files, close their tabs, and clear the password. Enabling this disables password auto-clear."
-      )
+    securityTimerSetting(containerEl, t("settings.idleLock"), "idle-lock")
+      .setDesc(t("settings.idleLockDescription"))
       .addDropdown((dropdown) => {
         addTimeoutOptions(dropdown);
         dropdown.setValue(String(this.plugin.settings.idleAutoLockMinutes));
@@ -159,7 +154,7 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
 
     containerEl.createEl("p", {
       cls: "setting-item-description",
-      text: `${AGE_CONFIG_PATH} and data.json never contain a password. The UI lock prevents accidental changes; it is not a security boundary.`
+      text: t("settings.securityNote")
     });
   }
 }
@@ -184,7 +179,12 @@ function securityTimerSetting(
 
   setting.nameEl.prepend(icon);
   setting.nameEl.addClass("vault-in-vault-setting-name");
-  setting.nameEl.setAttribute("aria-label", `${label}: ${icons.accessibleName}`);
+  const modeName = mode === "password-clear"
+    ? t("security.passwordClear")
+    : mode === "idle-lock"
+      ? t("security.idleLock")
+      : t("security.manual");
+  setting.nameEl.setAttribute("aria-label", t("settings.modeAria", { label, mode: modeName }));
   return setting;
 }
 
@@ -195,10 +195,10 @@ function addTimeoutOptions(dropdown: {
     dropdown.addOption(
       String(minutes),
       minutes === 0
-        ? "Off"
+        ? t("common.off")
         : minutes < 60
-          ? `${minutes} minutes`
-          : `${minutes / 60} ${minutes === 60 ? "hour" : "hours"}`
+          ? t("time.minutes", { count: minutes })
+          : t(minutes === 60 ? "time.hour" : "time.hours", { count: minutes / 60 })
     );
   }
 }

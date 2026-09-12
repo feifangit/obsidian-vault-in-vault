@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { t } from "./i18n";
 
 export type ClosedFileProtectionDecision = "current" | "all" | "leave";
 
@@ -29,39 +30,39 @@ export class ClosedFileProtectionModal extends Modal {
   override onOpen(): void {
     const { contentEl, summary } = this;
     const allFileCount = summary.allFilePaths.length;
-    this.titleEl.setText("Encrypt closed file?");
+    this.titleEl.setText(t("closed.title"));
     contentEl.createEl("p", {
-      text: `${summary.filePath} was closed and is still plaintext.`
+      text: t("closed.plaintext", { path: summary.filePath })
     });
     contentEl.createEl("p", {
       cls: "vault-in-vault-extension-summary",
-      text: `${allFileCount} matching plaintext ${allFileCount === 1 ? "file is" : "files are"} currently in this vault.`
+      text: t(allFileCount === 1 ? "closed.countOne" : "closed.countMany", { count: allFileCount })
     });
     renderCollapsedPathList(
       contentEl,
-      `Show ${allFileCount} ${allFileCount === 1 ? "file" : "files"} to encrypt`,
+      t(allFileCount === 1 ? "protect.showFileOne" : "protect.showFileMany", { count: allFileCount }),
       summary.allFilePaths
     );
     if (summary.ageConfigExcludedPaths.length > 0) {
       renderCollapsedPathList(
         contentEl,
-        `Show ${summary.ageConfigExcludedPaths.length} ${summary.ageConfigExcludedPaths.length === 1 ? "path" : "paths"} skipped by .ageconfig`,
+        t(summary.ageConfigExcludedPaths.length === 1 ? "protect.showPathOne" : "protect.showPathMany", { count: summary.ageConfigExcludedPaths.length }),
         summary.ageConfigExcludedPaths
       );
     }
     contentEl.createEl("p", {
       cls: "setting-item-description",
-      text: "Encrypt all also locks the vault and forgets the password cached for this session."
+      text: t("closed.forgetPassword")
     });
 
     const buttons = contentEl.createDiv({ cls: "vault-in-vault-modal-buttons" });
-    buttons.createEl("button", { text: "Leave plaintext" })
+    buttons.createEl("button", { text: t("closed.leavePlaintext") })
       .addEventListener("click", () => this.finish("leave"));
     buttons.createEl("button", {
-      text: `Encrypt all (${allFileCount})`
+      text: t("closed.encryptAll", { count: allFileCount })
     }).addEventListener("click", () => this.finish("all"));
     const current = buttons.createEl("button", {
-      text: "Encrypt this file",
+      text: t("closed.encryptThis"),
       cls: "mod-cta"
     });
     current.addEventListener("click", () => this.finish("current"));

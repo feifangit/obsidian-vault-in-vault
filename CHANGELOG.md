@@ -6,6 +6,14 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Added automatic UI localization based on Obsidian's language setting, starting with English, Simplified Chinese, and Traditional Chinese.
+
+### Changed
+
+- Raised the minimum supported Obsidian version to 1.8.7 so the plugin can use Obsidian's language API.
+
 ### Documentation
 
 - Added installation steps for finding Vault in Vault in Obsidian's Community plugins browser.

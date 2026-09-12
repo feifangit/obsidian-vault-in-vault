@@ -1,4 +1,5 @@
 import { DEFAULT_PROTECTED_EXTENSIONS } from "./file-types";
+import { t } from "./i18n";
 
 export const AGE_CONFIG_PATH = ".ageconfig";
 
@@ -13,10 +14,10 @@ export function parseAgeConfig(contents: string): AgeConfigPolicy {
     parsed = JSON.parse(contents);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`invalid JSON: ${message}`);
+    throw new Error(t("config.invalidJson", { error: message }));
   }
   if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
-    throw new Error("the root must be a JSON object");
+    throw new Error(t("config.rootObject"));
   }
 
   const object = parsed as Record<string, unknown>;
@@ -24,17 +25,17 @@ export function parseAgeConfig(contents: string): AgeConfigPolicy {
     (key) => key !== "extensions" && key !== "exclude"
   );
   if (unknown.length > 0) {
-    throw new Error(`unknown field ${JSON.stringify(unknown[0])}`);
+    throw new Error(t("config.unknownField", { field: JSON.stringify(unknown[0]) }));
   }
   if (object.extensions !== undefined && !Array.isArray(object.extensions)) {
-    throw new Error("extensions must be an array of file extensions");
+    throw new Error(t("config.extensionsArray"));
   }
   if (Array.isArray(object.extensions) && object.extensions.length === 0) {
-    throw new Error("extensions must contain at least one file extension");
+    throw new Error(t("config.extensionsEmpty"));
   }
   const rawExtensions = object.extensions ?? DEFAULT_PROTECTED_EXTENSIONS;
   if (!(rawExtensions as readonly unknown[]).every((value) => typeof value === "string")) {
-    throw new Error("extensions must contain only strings");
+    throw new Error(t("config.extensionsStrings"));
   }
 
   const extensions = [
@@ -42,11 +43,11 @@ export function parseAgeConfig(contents: string): AgeConfigPolicy {
   ].sort();
 
   if (object.exclude !== undefined && !Array.isArray(object.exclude)) {
-    throw new Error("exclude must be an array of relative paths");
+    throw new Error(t("config.excludeArray"));
   }
   const rawExclude = object.exclude ?? [];
   if (!(rawExclude as unknown[]).every((value) => typeof value === "string")) {
-    throw new Error("exclude must contain only strings");
+    throw new Error(t("config.excludeStrings"));
   }
 
   return {
@@ -66,7 +67,7 @@ export function normalizeExcludeList(input: string | readonly string[]): string[
 function validateAndNormalizeExtension(value: string): string {
   let normalized = value.trim().toLowerCase();
   if (normalized === "all" || normalized === "*") {
-    throw new Error(`invalid file extension ${JSON.stringify(value)}`);
+    throw new Error(t("config.invalidExtension", { value: JSON.stringify(value) }));
   }
   if (!normalized.startsWith(".")) normalized = `.${normalized}`;
   if (
@@ -76,7 +77,7 @@ function validateAndNormalizeExtension(value: string): string {
     normalized.includes("\\") ||
     normalized.slice(1).includes(".")
   ) {
-    throw new Error(`invalid file extension ${JSON.stringify(value)}`);
+    throw new Error(t("config.invalidExtension", { value: JSON.stringify(value) }));
   }
   return normalized.slice(1);
 }
@@ -86,15 +87,15 @@ function normalizeExcludePath(value: string): string {
   while (path.startsWith("./")) path = path.slice(2);
   if (path.endsWith("/")) path = path.slice(0, -1);
 
-  if (path.length === 0) throw new Error("exclude cannot contain an empty path");
+  if (path.length === 0) throw new Error(t("config.emptyExclude"));
   if (path.startsWith("/") || /^[a-z]:\//i.test(path)) {
-    throw new Error(`exclude path ${JSON.stringify(value)} must be relative to the vault`);
+    throw new Error(t("config.excludeRelative", { value: JSON.stringify(value) }));
   }
   if (path.includes("*") || path.includes("?") || path.includes("[") || path.includes("]")) {
-    throw new Error(`exclude path ${JSON.stringify(value)} cannot contain glob characters`);
+    throw new Error(t("config.excludeGlob", { value: JSON.stringify(value) }));
   }
   if (path.split("/").some((part) => part === "" || part === "." || part === "..")) {
-    throw new Error(`invalid exclude path ${JSON.stringify(value)}`);
+    throw new Error(t("config.invalidExclude", { value: JSON.stringify(value) }));
   }
   return path;
 }

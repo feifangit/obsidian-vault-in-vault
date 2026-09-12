@@ -2,6 +2,7 @@ import { FileView, Notice, TFile, WorkspaceLeaf } from "obsidian";
 
 import type VaultInVaultPlugin from "./main";
 import { classifyAgePath } from "./file-types";
+import { t } from "./i18n";
 
 export const AGE_VIEW_TYPE = "vault-in-vault-age-view";
 
@@ -14,7 +15,7 @@ export class EncryptedAgeView extends FileView {
   ) {
     super(leaf);
     this.navigation = true;
-    this.addAction("lock-open", "Decrypt in place and open", () => {
+    this.addAction("lock-open", t("ageView.action"), () => {
       void this.decryptAndOpen();
     });
   }
@@ -24,7 +25,7 @@ export class EncryptedAgeView extends FileView {
   }
 
   override getDisplayText(): string {
-    return this.file ? classifyAgePath(this.file.path).originalName : "Encrypted age file";
+    return this.file ? classifyAgePath(this.file.path).originalName : t("ageView.fallbackName");
   }
 
   override getIcon(): string {
@@ -44,11 +45,11 @@ export class EncryptedAgeView extends FileView {
     state.createEl("h3", { text: type.originalName });
     state.createEl("p", {
       text: type.kind === "image"
-        ? "This image is encrypted. Decrypt it in place to use Obsidian's native image preview and Markdown embeds."
-        : "Decrypt this file in place and open it with Obsidian's default view."
+        ? t("ageView.imageDescription")
+        : t("ageView.fileDescription")
     });
     const button = state.createEl("button", {
-      text: type.kind === "image" ? "Decrypt and open image" : "Decrypt and open",
+      text: type.kind === "image" ? t("ageView.openImage") : t("ageView.open"),
       cls: "mod-cta"
     });
     button.addEventListener("click", () => void this.decryptAndOpen());
@@ -57,7 +58,7 @@ export class EncryptedAgeView extends FileView {
   private async decryptAndOpen(): Promise<void> {
     if (this.opening || this.file === null) return;
     this.opening = true;
-    this.renderStatus("Decrypting…", "The plaintext will be opened with Obsidian's default view.");
+    this.renderStatus(t("ageView.decrypting"), t("ageView.openingPlaintext"));
     try {
       await this.plugin.decryptAndOpenFile(this.file, this.leaf);
     } catch (error) {
@@ -66,11 +67,11 @@ export class EncryptedAgeView extends FileView {
         return;
       }
       const message = error instanceof Error ? error.message : String(error);
-      this.renderStatus("Could not decrypt this file", message);
+      this.renderStatus(t("ageView.failed"), message);
       const retry = this.contentEl.querySelector<HTMLElement>(".vault-in-vault-state")
-        ?.createEl("button", { text: "Try again", cls: "mod-cta" });
+        ?.createEl("button", { text: t("common.tryAgain"), cls: "mod-cta" });
       retry?.addEventListener("click", () => void this.decryptAndOpen());
-      new Notice(`Vault in Vault: ${message}`);
+      new Notice(t("notice.error", { error: message }));
     } finally {
       this.opening = false;
     }

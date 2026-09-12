@@ -20,24 +20,20 @@ export interface SecurityTimerSnapshot {
 export interface SecurityModeIcon {
   baseIcon: "lock-keyhole" | "key-round";
   badgeIcon: "clock-3" | "refresh-cw" | null;
-  accessibleName: string;
 }
 
 const SECURITY_MODE_ICONS: Record<SecurityTimerMode, SecurityModeIcon> = {
   off: {
     baseIcon: "lock-keyhole",
-    badgeIcon: null,
-    accessibleName: "Manual vault lock"
+    badgeIcon: null
   },
   "password-clear": {
     baseIcon: "key-round",
-    badgeIcon: "clock-3",
-    accessibleName: "Password auto-clear"
+    badgeIcon: "clock-3"
   },
   "idle-lock": {
     baseIcon: "lock-keyhole",
-    badgeIcon: "refresh-cw",
-    accessibleName: "Automatic idle lock"
+    badgeIcon: "refresh-cw"
   }
 };
 

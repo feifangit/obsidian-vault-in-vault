@@ -1,4 +1,5 @@
 import { App, Modal, Setting, TextComponent } from "obsidian";
+import { t } from "./i18n";
 
 export interface PasswordAnswer {
   password: string;
@@ -30,30 +31,30 @@ export class PasswordModal extends Modal {
   }
 
   override onOpen(): void {
-    this.titleEl.setText("Unlock age file");
+    this.titleEl.setText(t("password.title"));
     this.contentEl.addClass("vault-in-vault-password-modal");
     this.contentEl.createEl("p", {
-      text: `Enter the password for ${this.filePath}. The password is never saved to disk.`
+      text: t("password.description", { path: this.filePath })
     });
 
     const form = this.contentEl.createEl("form");
-    new Setting(form).setName("Password").addText((text) => {
+    new Setting(form).setName(t("password.label")).addText((text) => {
       this.passwordInput = text;
       text.inputEl.type = "password";
       text.inputEl.autocomplete = "current-password";
-      text.inputEl.setAttribute("aria-label", "age file password");
+      text.inputEl.setAttribute("aria-label", t("password.ariaFile"));
     });
 
     new Setting(form)
       .setName(
         this.requiresRememberForSession
-          ? "Remember until automatic lock"
-          : "Remember for this Obsidian session"
+          ? t("password.rememberAuto")
+          : t("password.rememberSession")
       )
       .setDesc(
         this.requiresRememberForSession
-          ? "Required by automatic idle lock. Stored only in plugin memory and cleared after locking."
-          : "Stored only in plugin memory until you lock the views or unload the plugin."
+          ? t("password.rememberAutoDescription")
+          : t("password.rememberSessionDescription")
       )
       .addToggle((toggle) => {
         toggle.setValue(true).setDisabled(this.requiresRememberForSession).onChange((value) => {
@@ -62,10 +63,10 @@ export class PasswordModal extends Modal {
       });
 
     const buttons = form.createDiv({ cls: "vault-in-vault-modal-buttons" });
-    const cancel = buttons.createEl("button", { text: "Cancel", attr: { type: "button" } });
+    const cancel = buttons.createEl("button", { text: t("common.cancel"), attr: { type: "button" } });
     cancel.addEventListener("click", () => this.close());
     buttons.createEl("button", {
-      text: "Unlock",
+      text: t("common.unlock"),
       cls: "mod-cta",
       attr: { type: "submit" }
     });

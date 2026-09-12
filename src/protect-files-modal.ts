@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { t } from "./i18n";
 
 export type ProtectionDecision = "encrypt" | "leave";
 
@@ -27,25 +28,28 @@ export class ProtectFilesModal extends Modal {
 
   override onOpen(): void {
     const { contentEl, summary } = this;
-    this.titleEl.setText("Encrypt and lock vault?");
+    this.titleEl.setText(t("protect.title"));
     contentEl.createEl("p", {
-      text: `${summary.fileCount} matching plaintext ${summary.fileCount === 1 ? "file" : "files"} (${formatBytes(summary.totalBytes)}) will be encrypted.`
+      text: t(summary.fileCount === 1 ? "protect.summaryOne" : "protect.summaryMany", {
+        count: summary.fileCount,
+        size: formatBytes(summary.totalBytes)
+      })
     });
     renderCollapsedPathList(
       contentEl,
-      `Show ${summary.filePaths.length} ${summary.filePaths.length === 1 ? "file" : "files"} to encrypt`,
+      t(summary.filePaths.length === 1 ? "protect.showFileOne" : "protect.showFileMany", { count: summary.filePaths.length }),
       summary.filePaths
     );
     if (summary.ageConfigExcludedPaths.length > 0) {
       renderCollapsedPathList(
         contentEl,
-        `Show ${summary.ageConfigExcludedPaths.length} ${summary.ageConfigExcludedPaths.length === 1 ? "path" : "paths"} skipped by .ageconfig`,
+        t(summary.ageConfigExcludedPaths.length === 1 ? "protect.showPathOne" : "protect.showPathMany", { count: summary.ageConfigExcludedPaths.length }),
         summary.ageConfigExcludedPaths
       );
     }
     contentEl.createEl("p", {
       cls: "setting-item-description",
-      text: "Locking the vault forgets the password cached for this session."
+      text: t("protect.forgetPassword")
     });
     contentEl.createEl("p", {
       cls: "vault-in-vault-extension-summary",
@@ -57,11 +61,11 @@ export class ProtectFilesModal extends Modal {
 
     const buttons = contentEl.createDiv({ cls: "vault-in-vault-modal-buttons" });
     const leave = buttons.createEl("button", {
-      text: "Cancel"
+      text: t("common.cancel")
     });
     leave.addEventListener("click", () => this.finish("leave"));
     const encrypt = buttons.createEl("button", {
-      text: "Encrypt and lock",
+      text: t("protect.encryptAndLock"),
       cls: "mod-cta"
     });
     encrypt.addEventListener("click", () => this.finish("encrypt"));

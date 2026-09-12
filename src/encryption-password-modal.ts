@@ -1,6 +1,7 @@
 import { App, Modal, Setting, TextComponent } from "obsidian";
 
 import type { PasswordAnswer } from "./password-modal";
+import { t } from "./i18n";
 
 export interface VaultPasswordRequest {
   title: string;
@@ -34,34 +35,34 @@ export class EncryptionPasswordModal extends Modal {
     this.contentEl.createEl("p", { text: this.request.description });
 
     const form = this.contentEl.createEl("form");
-    new Setting(form).setName("Password").addText((text) => {
+    new Setting(form).setName(t("password.label")).addText((text) => {
       this.passwordInput = text;
       text.inputEl.type = "password";
       text.inputEl.autocomplete = this.request.requiresConfirmation
         ? "new-password"
         : "current-password";
-      text.inputEl.setAttribute("aria-label", "Vault encryption password");
+      text.inputEl.setAttribute("aria-label", t("password.ariaVault"));
     });
 
     if (this.request.requiresConfirmation) {
-      new Setting(form).setName("Confirm password").addText((text) => {
+      new Setting(form).setName(t("password.confirm")).addText((text) => {
         this.confirmationInput = text;
         text.inputEl.type = "password";
         text.inputEl.autocomplete = "new-password";
-        text.inputEl.setAttribute("aria-label", "Confirm Vault encryption password");
+        text.inputEl.setAttribute("aria-label", t("password.ariaConfirm"));
       });
     }
 
     new Setting(form)
       .setName(
         this.request.requiresRememberForSession
-          ? "Remember until automatic lock"
-          : "Remember for this Obsidian session"
+          ? t("password.rememberAuto")
+          : t("password.rememberSession")
       )
       .setDesc(
         this.request.requiresRememberForSession
-          ? "Required by automatic idle lock. Stored only in plugin memory and cleared after locking."
-          : "Stored only in plugin memory; never written to disk."
+          ? t("password.rememberAutoDescription")
+          : t("password.rememberDiskDescription")
       )
       .addToggle((toggle) => {
         toggle.setValue(true).setDisabled(this.request.requiresRememberForSession === true).onChange((value) => {
@@ -71,7 +72,7 @@ export class EncryptionPasswordModal extends Modal {
 
     this.errorEl = form.createDiv({ cls: "vault-in-vault-modal-error" });
     const buttons = form.createDiv({ cls: "vault-in-vault-modal-buttons" });
-    const cancel = buttons.createEl("button", { text: "Cancel", attr: { type: "button" } });
+    const cancel = buttons.createEl("button", { text: t("common.cancel"), attr: { type: "button" } });
     cancel.addEventListener("click", () => this.close());
     buttons.createEl("button", {
       text: this.request.submitLabel,
@@ -83,7 +84,7 @@ export class EncryptionPasswordModal extends Modal {
       event.preventDefault();
       const password = this.passwordInput?.getValue() ?? "";
       if (password.length === 0) {
-        this.showError("Password cannot be empty.");
+        this.showError(t("password.empty"));
         this.passwordInput?.inputEl.focus();
         return;
       }
@@ -91,7 +92,7 @@ export class EncryptionPasswordModal extends Modal {
         this.request.requiresConfirmation &&
         password !== this.confirmationInput?.getValue()
       ) {
-        this.showError("Passwords do not match.");
+        this.showError(t("password.mismatch"));
         this.confirmationInput?.inputEl.focus();
         return;
       }

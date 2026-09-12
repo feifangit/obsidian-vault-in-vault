@@ -17,6 +17,14 @@ Vault in Vault 保护文件内容，但不会隐藏文件名和目录结构。
 
 [English](../README.md)
 
+## 从 Obsidian 社区插件安装
+
+1. 在 Obsidian 中打开 **Settings -> Community plugins**。
+2. 点击 **Browse**，搜索 **Vault in Vault**。
+3. 打开插件页面，依次点击 **Install** 和 **Enable**。
+
+Vault in Vault 目前只支持桌面版。也可以先查看它的 [Obsidian Community 页面](https://community.obsidian.md/plugins/vault-in-vault)。
+
 ## 快速了解使用方式
 
 ### 加密文件仍留在原目录

@@ -17,6 +17,14 @@ Vault in Vault protects file contents. File names and folder structure remain vi
 
 [简体中文](docs/README.zh-CN.md)
 
+## Install from Obsidian Community plugins
+
+1. Open **Settings -> Community plugins** in Obsidian.
+2. Select **Browse** and search for **Vault in Vault**.
+3. Select the plugin, then choose **Install** and **Enable**.
+
+Vault in Vault is currently available on desktop only. You can also view its [Obsidian Community listing](https://community.obsidian.md/plugins/vault-in-vault).
+
 ## Quick tour
 
 ### Locked files remain in their original folders

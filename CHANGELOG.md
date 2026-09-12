@@ -6,6 +6,10 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Documentation
+
+- Added installation steps for finding Vault in Vault in Obsidian's Community plugins browser.
+
 ## [0.7.4] - 2026-09-12
 
 ### Fixed

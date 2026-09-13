@@ -6,6 +6,8 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-13
+
 ### Added
 
 - Added automatic UI localization based on Obsidian's language setting, starting with English, Simplified Chinese, Traditional Chinese, Japanese, and Korean.

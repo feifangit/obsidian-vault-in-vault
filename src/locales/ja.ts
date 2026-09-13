@@ -55,7 +55,7 @@ export const JAPANESE: Record<MessageKey, string> = {
   "closed.encryptAll": "すべて暗号化（{count}）",
   "closed.encryptThis": "このファイルを暗号化",
 
-  "settings.intro": "これらの設定は現在の保管庫に適用されます。保管庫のルートに .ageconfig がある場合、Vault in Vault と Go CLI の両方で保護するファイル形式と除外パスが定義されます。",
+  "settings.intro": "これらの設定は現在の保管庫に適用されます。保管庫のルートに .ageconfig がある場合、保護するファイル形式と除外パスが定義されます。",
   "settings.policySource": "保護ポリシーの参照元",
   "settings.policyInvalid": ".ageconfig が無効です：{error}",
   "settings.policyLocal": "プラグイン設定（data.json）",

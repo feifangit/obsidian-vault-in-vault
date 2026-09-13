@@ -49,7 +49,7 @@ export const TRADITIONAL_CHINESE: Record<MessageKey, string> = {
   "closed.leavePlaintext": "保留明文",
   "closed.encryptAll": "全部加密（{count}）",
   "closed.encryptThis": "加密此檔案",
-  "settings.intro": "這些設定屬於目前 Vault。如果 Vault 根目錄中存在 .ageconfig，它會同時為 Vault in Vault 和 Go CLI 提供受保護檔案類型與排除路徑。",
+  "settings.intro": "這些設定屬於目前 Vault。如果 Vault 根目錄中存在 .ageconfig，它會定義受保護的檔案類型與排除路徑。",
   "settings.policySource": "保護策略來源",
   "settings.policyInvalid": ".ageconfig 無效：{error}",
   "settings.policyLocal": "外掛設定（data.json）",

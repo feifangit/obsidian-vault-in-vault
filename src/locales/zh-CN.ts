@@ -50,7 +50,7 @@ export const SIMPLIFIED_CHINESE: Record<MessageKey, string> = {
   "closed.leavePlaintext": "保留明文",
   "closed.encryptAll": "全部加密（{count}）",
   "closed.encryptThis": "加密此文件",
-  "settings.intro": "这些设置属于当前 Vault。如果 Vault 根目录中存在 .ageconfig，它会同时为 Vault in Vault 和 Go CLI 提供受保护文件类型与排除路径。",
+  "settings.intro": "这些设置属于当前 Vault。如果 Vault 根目录中存在 .ageconfig，它会定义受保护的文件类型与排除路径。",
   "settings.policySource": "保护策略来源",
   "settings.policyInvalid": ".ageconfig 无效：{error}",
   "settings.policyLocal": "插件设置（data.json）",

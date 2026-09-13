@@ -60,7 +60,7 @@ const ENGLISH = {
   "closed.encryptAll": "Encrypt all ({count})",
   "closed.encryptThis": "Encrypt this file",
 
-  "settings.intro": "These settings belong to this vault. If .ageconfig exists in the vault root, it supplies the protected file types and excluded paths for both Vault in Vault and the Go CLI.",
+  "settings.intro": "These settings belong to this vault. If .ageconfig exists in the vault root, it defines the protected file types and excluded paths.",
   "settings.policySource": "Protection policy source",
   "settings.policyInvalid": ".ageconfig is invalid: {error}",
   "settings.policyLocal": "Plugin settings (data.json)",

@@ -55,7 +55,7 @@ export const KOREAN: Record<MessageKey, string> = {
   "closed.encryptAll": "모두 암호화({count})",
   "closed.encryptThis": "이 파일 암호화",
 
-  "settings.intro": "이 설정은 현재 볼트에 적용됩니다. 볼트 루트에 .ageconfig가 있으면 Vault in Vault와 Go CLI에서 보호할 파일 형식과 제외 경로를 함께 정의합니다.",
+  "settings.intro": "이 설정은 현재 볼트에 적용됩니다. 볼트 루트에 .ageconfig가 있으면 보호할 파일 형식과 제외 경로를 정의합니다.",
   "settings.policySource": "보호 정책 원본",
   "settings.policyInvalid": ".ageconfig가 올바르지 않습니다: {error}",
   "settings.policyLocal": "플러그인 설정(data.json)",

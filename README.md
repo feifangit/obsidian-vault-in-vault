@@ -9,15 +9,14 @@ Vault in Vault helps you:
 - **Use Obsidian normally while unlocked.** Open a protected file, enter its password, and continue with Obsidian's native editor, image preview, links, and search.
 - **Lock plaintext again without leaving Obsidian.** Encrypt one file when its last tab closes, lock every exposed file on demand, or enable automatic locking after Vault inactivity.
 - **Choose what is protected.** Configure file extensions and exclude public folders, templates, or individual files with a Vault-wide `.ageconfig` policy.
+- **Use the plugin in your language.** The interface follows Obsidian and currently supports English, Simplified Chinese, Traditional Chinese, Japanese, and Korean.
 
 Vault in Vault protects file contents. File names and folder structure remain visible.
 
 > [!WARNING]
 > Vault in Vault writes plaintext to disk while a file is unlocked. Keep backups and read the [security model](#security-model) before using it with important data. This project has not received an independent security audit.
 
-[简体中文](docs/README.zh-CN.md)
-
-The plugin interface follows Obsidian's language setting. English, Simplified Chinese, Traditional Chinese, Japanese, and Korean are currently included.
+[English](README.md) · [简体中文](docs/README.zh-CN.md) · [繁體中文](docs/README.zh-TW.md) · [日本語](docs/README.ja.md) · [한국어](docs/README.ko.md)
 
 ## Install from Obsidian Community plugins
 
@@ -87,6 +86,7 @@ The Ribbon icon shows the configured mode separately from password status:
 - Uses configurable protected extensions and vault-relative file/folder exclusions. The defaults are `.md`, `.avif`, `.bmp`, `.gif`, `.jpeg`, `.jpg`, `.png`, `.svg`, and `.webp`.
 - Preserves subfolders and excludes the vault configuration directory and files already ending in `.age`.
 - Verifies every new plaintext or ciphertext copy before deleting its source.
+- Follows Obsidian's interface language, with English, Simplified Chinese, Traditional Chinese, Japanese, and Korean translations.
 
 ## How it works
 

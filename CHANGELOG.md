@@ -17,6 +17,7 @@ The project follows [Semantic Versioning](https://semver.org/).
 ### Documentation
 
 - Added installation steps for finding Vault in Vault in Obsidian's Community plugins browser.
+- Added complete Traditional Chinese, Japanese, and Korean README translations.
 
 ## [0.7.4] - 2026-09-12
 

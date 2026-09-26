@@ -35,6 +35,13 @@ export class EncryptedAgeView extends FileView {
   override async onLoadFile(file: TFile): Promise<void> {
     await super.onLoadFile(file);
     this.renderLockedState(file);
+    if (this.plugin.shouldAutoOpenEncryptedFile()) {
+      window.setTimeout(() => {
+        if (this.file === file && this.plugin.shouldAutoOpenEncryptedFile()) {
+          void this.decryptAndOpen();
+        }
+      }, 0);
+    }
   }
 
   private renderLockedState(file: TFile): void {

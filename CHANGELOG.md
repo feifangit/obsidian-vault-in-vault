@@ -6,6 +6,18 @@ The project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-26
+
+### Added
+
+- Added a file-explorer folder action that recursively decrypts matching `.age` files with one confirmation and one password prompt.
+- Folder decryption previews matching and policy-skipped files, honors `.ageconfig`, and keeps encrypted sources for every failed or conflicting file.
+- Added an opt-in setting to decrypt and open encrypted files immediately when the Vault password is already cached in memory.
+
+### Documentation
+
+- Reworded user-facing guides around "encrypted files" and consolidated age format, filename suffix, and Obsidian's automatic AGE label into one technical section in every supported language.
+
 ## [0.8.0] - 2026-09-13
 
 ### Added

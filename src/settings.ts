@@ -112,6 +112,17 @@ export class VaultInVaultSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName(t("settings.autoOpenCached"))
+      .setDesc(t("settings.autoOpenCachedDescription"))
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.autoOpenWithCachedPassword);
+        toggle.onChange((value) => {
+          this.plugin.settings.autoOpenWithCachedPassword = value;
+          void this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
       .setName(t("settings.autoImages"))
       .setDesc(t("settings.autoImagesDescription"))
       .addToggle((toggle) => {

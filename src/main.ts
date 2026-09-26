@@ -8,14 +8,17 @@ import {
   Plugin,
   setIcon,
   TFile,
+  TFolder,
   WorkspaceLeaf
 } from "obsidian";
 import { shell } from "electron";
 
 import { AGE_VIEW_TYPE, EncryptedAgeView } from "./age-view";
 import { AGE_CONFIG_PATH, AgeConfigPolicy, normalizeExcludeList, parseAgeConfig } from "./age-config";
+import { shouldAutoOpenEncryptedFile } from "./auto-open";
 import { runAutoLockBatch } from "./auto-lock";
 import { decryptWithPassphrase, encryptWithPassphrase } from "./crypto";
+import { DecryptFolderModal, FolderDecryptSummary } from "./decrypt-folder-modal";
 import { EncryptionPasswordModal } from "./encryption-password-modal";
 import {
   classifyAgePath,
@@ -26,6 +29,7 @@ import {
   isProtectedPlainPath,
   normalizeExtensionList
 } from "./file-types";
+import { selectFolderAgePaths } from "./folder-decrypt";
 import { PasswordModal } from "./password-modal";
 import { setLanguage, t } from "./i18n";
 import { ProtectFilesModal, ProtectionSummary } from "./protect-files-modal";
@@ -45,6 +49,7 @@ export interface VaultInVaultSettings {
   extensions: string[];
   excludedPaths: string[];
   autoDecryptEmbeddedImages: boolean;
+  autoOpenWithCachedPassword: boolean;
   passwordCacheTimeoutMinutes: SecurityTimeoutMinutes;
   idleAutoLockMinutes: SecurityTimeoutMinutes;
 }
@@ -53,6 +58,7 @@ const DEFAULT_SETTINGS: VaultInVaultSettings = {
   extensions: [...DEFAULT_PROTECTED_EXTENSIONS],
   excludedPaths: [],
   autoDecryptEmbeddedImages: true,
+  autoOpenWithCachedPassword: false,
   passwordCacheTimeoutMinutes: 0,
   idleAutoLockMinutes: 0
 };
@@ -127,6 +133,22 @@ export default class VaultInVaultPlugin extends Plugin {
         new Notice(t("notice.passwordCleared"));
       }
     });
+
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof TFolder) || !this.folderContainsAgeFile(file.path)) return;
+        menu.addItem((item) => {
+          item
+            .setTitle(t("folderDecrypt.menu"))
+            .setIcon("folder-open")
+            .onClick(() => {
+              void this.decryptFolder(file.path).catch((error) => {
+                if (!this.isCancelledError(error)) this.reportError(error);
+              });
+            });
+        });
+      })
+    );
 
     this.ribbonLockEl = this.addRibbonIcon("lock-keyhole", t("ribbon.encryptLock"), () => {
       void this.encryptAndLock(false).catch((error) => this.reportError(error));
@@ -342,6 +364,13 @@ export default class VaultInVaultPlugin extends Plugin {
     return this.settings.idleAutoLockMinutes > 0;
   }
 
+  shouldAutoOpenEncryptedFile(): boolean {
+    return shouldAutoOpenEncryptedFile(
+      this.settings.autoOpenWithCachedPassword,
+      this.sessionPassword !== null
+    );
+  }
+
   isCancelledError(error: unknown): boolean {
     return error instanceof PasswordCancelledError;
   }
@@ -366,6 +395,10 @@ export default class VaultInVaultPlugin extends Plugin {
         typeof data?.autoDecryptEmbeddedImages === "boolean"
           ? data.autoDecryptEmbeddedImages
           : DEFAULT_SETTINGS.autoDecryptEmbeddedImages,
+      autoOpenWithCachedPassword:
+        typeof data?.autoOpenWithCachedPassword === "boolean"
+          ? data.autoOpenWithCachedPassword
+          : DEFAULT_SETTINGS.autoOpenWithCachedPassword,
       ...securityTimers
     };
     // Persist the normalized schema and remove obsolete tracking-only fields
@@ -460,6 +493,162 @@ export default class VaultInVaultPlugin extends Plugin {
 
     this.clearPassword();
     new Notice(t(completed === 1 ? "notice.encryptedLockedOne" : "notice.encryptedLockedMany", { count: completed }));
+  }
+
+  private folderContainsAgeFile(folderPath: string): boolean {
+    const normalizedFolder = folderPath.replace(/^\/+|\/+$/g, "");
+    return this.app.vault.getFiles().some(
+      (file) =>
+        file.path.toLowerCase().endsWith(".age") &&
+        (normalizedFolder.length === 0 || file.path.startsWith(`${normalizedFolder}/`))
+    );
+  }
+
+  private async decryptFolder(folderPath: string): Promise<void> {
+    await this.requireValidProtectionPolicy();
+    let selection = this.getFolderDecryptSelection(folderPath);
+    let files = selection.eligiblePaths
+      .map((path) => this.getFileByPath(path))
+      .filter((file): file is TFile => file !== null);
+    if (files.length === 0) {
+      new Notice(t("notice.noFolderAgeFiles", { folder: folderPath || "/" }));
+      return;
+    }
+
+    const summary: FolderDecryptSummary = {
+      folderPath: folderPath || "/",
+      fileCount: files.length,
+      totalBytes: files.reduce((total, file) => total + file.stat.size, 0),
+      filePaths: files.map((file) => file.path),
+      skippedPaths: selection.skippedPaths
+    };
+    if (await DecryptFolderModal.ask(this.app, summary) !== "decrypt") return;
+
+    // The policy or directory may have changed while the confirmation was open.
+    await this.requireValidProtectionPolicy();
+    selection = this.getFolderDecryptSelection(folderPath);
+    files = selection.eligiblePaths
+      .map((path) => this.getFileByPath(path))
+      .filter((file): file is TFile => file !== null);
+    if (files.length === 0) {
+      new Notice(t("notice.noFolderAgeFiles", { folder: folderPath || "/" }));
+      return;
+    }
+
+    const { password, firstPlaintext } = await this.getFolderDecryptionPassword(
+      files[0],
+      folderPath || "/",
+      files.length
+    );
+    const progress = new Notice(
+      t("notice.decryptFolderProgress", { done: 0, total: files.length }),
+      0
+    );
+    let completed = 0;
+    const failures: string[] = [];
+    try {
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        try {
+          if (index === 0) {
+            await this.publishPlaintext(file, firstPlaintext);
+          } else {
+            await this.decryptAgeFileWithPassword(file, password);
+          }
+          completed++;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          failures.push(`${file.path}: ${message}`);
+        }
+        progress.setMessage(
+          t("notice.decryptFolderProgress", { done: index + 1, total: files.length })
+        );
+      }
+    } finally {
+      progress.hide();
+    }
+
+    if (failures.length === 0) {
+      new Notice(
+        t(
+          completed === 1
+            ? "notice.decryptedFolderOne"
+            : "notice.decryptedFolderMany",
+          { count: completed, folder: folderPath || "/" }
+        )
+      );
+      return;
+    }
+
+    const preview = failures.slice(0, 3).join("; ");
+    const suffix = failures.length > 3
+      ? t("notice.moreFailures", { count: failures.length - 3 })
+      : "";
+    new Notice(
+      t("notice.decryptFolderFailures", {
+        completed,
+        failed: failures.length,
+        details: preview,
+        suffix
+      }),
+      15_000
+    );
+  }
+
+  private getFolderDecryptSelection(folderPath: string): {
+    eligiblePaths: string[];
+    skippedPaths: string[];
+  } {
+    return selectFolderAgePaths(
+      this.app.vault.getFiles().map((file) => file.path),
+      folderPath,
+      this.getProtectedExtensions(),
+      this.app.vault.configDir,
+      this.getExcludedPaths()
+    );
+  }
+
+  private async getFolderDecryptionPassword(
+    verificationFile: TFile,
+    folderPath: string,
+    count: number
+  ): Promise<{ password: string; firstPlaintext: Uint8Array }> {
+    const ciphertext = new Uint8Array(await this.app.vault.readBinary(verificationFile));
+    if (this.sessionPassword !== null) {
+      try {
+        return {
+          password: this.sessionPassword,
+          firstPlaintext: await decryptWithPassphrase(ciphertext, this.sessionPassword)
+        };
+      } catch {
+        this.clearPassword();
+      }
+    }
+
+    while (true) {
+      const answer = await EncryptionPasswordModal.ask(this.app, {
+        title: t("operation.decryptFolderTitle"),
+        description: t(
+          count === 1
+            ? "operation.decryptFolderOne"
+            : "operation.decryptFolderMany",
+          { count, folder: folderPath }
+        ),
+        submitLabel: t("common.decrypt"),
+        requiresConfirmation: false,
+        requiresRememberForSession: this.requiresRememberedPassword()
+      });
+      if (answer === null) throw new PasswordCancelledError();
+      try {
+        const firstPlaintext = await decryptWithPassphrase(ciphertext, answer.password);
+        if (answer.rememberForSession) this.cachePassword(answer.password);
+        this.configurationUnlocked = true;
+        return { password: answer.password, firstPlaintext };
+      } catch {
+        this.clearPassword();
+        new Notice(t("notice.wrongExistingPassword"));
+      }
+    }
   }
 
   private captureOpenLeafFiles(): void {

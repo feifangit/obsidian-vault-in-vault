@@ -5,7 +5,7 @@ Keep private notes and images encrypted inside your Obsidian vault, and unlock t
 Vault in Vault helps you:
 
 - **Protect sensitive content at rest.** Encrypt journals, personal records, work notes, and images that should not remain readable in copied, backed-up, or synchronized vaults.
-- **Keep files where they belong.** Locked files stay in their original folders as standard password-encrypted `.age` files.
+- **Keep files where they belong.** Locked files stay in their original folders as password-encrypted files.
 - **Use Obsidian normally while unlocked.** Open a protected file, enter its password, and continue with Obsidian's native editor, image preview, links, and search.
 - **Lock plaintext again without leaving Obsidian.** Encrypt one file when its last tab closes, lock every exposed file on demand, or enable automatic locking after Vault inactivity.
 - **Choose what is protected.** Configure file extensions and exclude public folders, templates, or individual files with a Vault-wide `.ageconfig` policy.
@@ -30,9 +30,9 @@ Vault in Vault is currently available on desktop only. You can also view its [Ob
 
 ### Locked files remain in their original folders
 
-Encrypted files are marked **AGE** in the file explorer. Their names and folder structure remain available, while their contents are unreadable without the password.
+Encrypted files remain visible in the file explorer so you can keep using the same folder structure, while their contents are unreadable without the password.
 
-![Encrypted files marked AGE in the Obsidian file explorer](docs/images/encrypted-files.png)
+![Encrypted files in the Obsidian file explorer](docs/images/encrypted-files.png)
 
 ### Click a locked file to open it
 
@@ -45,6 +45,12 @@ Enter the password. You can optionally remember it in memory for the current Obs
 ![Password prompt with a remember-for-session option](docs/images/password-prompt.png)
 
 After decryption, the note opens in Obsidian's normal editor. Markdown features, image previews, links, search, and compatible plugins continue to work while the file is unlocked.
+
+The confirmation screen remains the default. If you prefer faster access, enable **Open encrypted files immediately when unlocked** in the plugin settings. It only skips this screen while the password is already cached in memory.
+
+### Decrypt an entire folder
+
+Right-click a folder in the file explorer and select **Decrypt files in this folder** to decrypt matching encrypted files in that folder and all of its subfolders. The confirmation shows a collapsed file list and any encrypted files skipped by the current protection policy. A cached password is reused; otherwise the plugin asks once for the whole batch. Excluded files, unsupported file types, and conflicting plaintext targets are never overwritten.
 
 ### Decide what to lock when a tab closes
 
@@ -76,27 +82,29 @@ The Ribbon icon shows the configured mode separately from password status:
 
 ## Features
 
-- Opens password-encrypted `.age` files from the file explorer.
+- Opens password-encrypted files from the file explorer.
 - Decrypts Markdown and images in place so native editing, previews, links, search, and other plugins continue to work.
+- Recursively decrypts matching encrypted files from a folder's context menu with one confirmation and one password prompt.
 - Re-encrypts the final closed file or every matching plaintext file after the last protected plaintext tab closes.
 - Provides an **Encrypt and lock vault now** command and ribbon action.
 - Caches a password in memory only when the user chooses to remember it for the current session.
+- Can open an encrypted file immediately when the password is already cached, if the user enables that option.
 - Shows a red, green, or yellow light under the ribbon lock for unavailable, cached, or soon-expiring password state.
 - Can clear a cached password after a hard time limit, or automatically encrypt and lock after no activity in this Vault.
 - Uses configurable protected extensions and vault-relative file/folder exclusions. The defaults are `.md`, `.avif`, `.bmp`, `.gif`, `.jpeg`, `.jpg`, `.png`, `.svg`, and `.webp`.
-- Preserves subfolders and excludes the vault configuration directory and files already ending in `.age`.
+- Preserves subfolders and excludes the vault configuration directory and files that are already encrypted.
 - Verifies every new plaintext or ciphertext copy before deleting its source.
 - Follows Obsidian's interface language, with English, Simplified Chinese, Traditional Chinese, Japanese, and Korean translations.
 
 ## How it works
 
-Opening `notes/private.md.age` and selecting **Decrypt and open** performs this transition:
+Opening a protected note and selecting **Decrypt and open** performs this transition:
 
 ```text
-notes/private.md.age
-    -> decrypt and verify notes/private.md
-    -> remove notes/private.md.age
-    -> open notes/private.md in the native editor
+encrypted note
+    -> decrypt and verify the plaintext copy
+    -> remove the encrypted source
+    -> open the note in the native editor
 ```
 
 When the last open protected plaintext tab closes, Vault in Vault offers three choices and a collapsed list of all matching plaintext files. If `.ageconfig` excludes paths, a second collapsed list shows which configured files and folders will be skipped:
@@ -115,16 +123,16 @@ The plugin does not attempt interactive encryption from an application quit hook
 
 Images use the same in-place workflow:
 
-- Open `photo.png.age` and select **Decrypt and open image** for the native image preview.
-- When an unlocked Markdown file embeds `photo.png`, the plugin can find and decrypt `photo.png.age` automatically.
+- Open an encrypted image and select **Decrypt and open image** for the native image preview.
+- When an unlocked Markdown file embeds an encrypted image, the plugin can find and decrypt it automatically.
 - Use **Decrypt encrypted images in current note** when automatic decryption is unavailable.
 
-Image links in Markdown retain their ordinary names and do not need an `.age` suffix.
+Image links in Markdown retain their ordinary names and do not need to include the encryption suffix.
 
 ## Password behavior
 
-- Existing non-excluded `.age` files are used to verify the supplied password before a vault-wide encryption operation.
-- If no `.age` file exists, the password must be entered twice.
+- Existing non-excluded encrypted files are used to verify the supplied password before a vault-wide encryption operation.
+- If no encrypted file exists yet, the password must be entered twice.
 - A remembered password is held only in JavaScript memory for the current plugin session.
 - Passwords are never written to `data.json`.
 - There is no password recovery. A lost password makes the encrypted files unrecoverable.
@@ -144,7 +152,7 @@ The timer measures activity visible to the plugin in this Vault's Obsidian windo
 
 ## Settings
 
-Open **Settings -> Vault in Vault** to inspect the protected extensions, excluded paths, embedded-image behavior, and session security timers. Editing the protection policy is locked until an existing vault password is verified. Timer controls remain available so a cached password can always be constrained. The UI lock prevents accidental policy changes; it is not a security boundary.
+Open **Settings -> Vault in Vault** to inspect the protected extensions, excluded paths, immediate-open preference, embedded-image behavior, and session security timers. Editing the protection policy is locked until an existing vault password is verified. The immediate-open and timer controls remain available without unlocking the policy. The UI lock prevents accidental policy changes; it is not a security boundary.
 
 Settings are stored per vault in:
 
@@ -165,7 +173,7 @@ To share one policy with the companion Go CLI, create `.ageconfig` in the vault 
 }
 ```
 
-`exclude` entries are vault-relative exact file paths or directory paths. A directory excludes its entire subtree. Paths are case-sensitive and do not support globs; absolute paths and `..` are rejected. Excluding a plaintext name also excludes its corresponding `.age` file from CLI decrypt and password-change scans.
+`exclude` entries are vault-relative exact file paths or directory paths. A directory excludes its entire subtree. Paths are case-sensitive and do not support globs; absolute paths and `..` are rejected. Excluding a plaintext name also excludes its encrypted counterpart from CLI decrypt and password-change scans.
 
 `extensions` is optional. A policy containing only exclusions uses the built-in Markdown and common-image defaults:
 
@@ -234,11 +242,11 @@ Tests cover age round trips, a Go-generated age fixture, wrong passwords, Unicod
 
 The workflow is the normal **Create a release** step; there is no need to create a second release or upload the files manually. Obsidian downloads these assets from the published release whose tag matches `manifest.json.version`.
 
-## Compatibility
+## Compatibility and encrypted file format
 
 Vault in Vault 0.8.0 and later requires Obsidian 1.8.7 or newer so it can follow Obsidian's selected interface language.
 
-Vault in Vault uses [`age-encryption`](https://github.com/FiloSottile/typage) with an age scrypt work factor of 14. Files are compatible with standard passphrase-encrypted age files. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependency notices.
+Vault in Vault uses the open age encryption format through [`age-encryption`](https://github.com/FiloSottile/typage), with a scrypt work factor of 14. It appends `.age` to the original filename—for example, `note.md` becomes `note.md.age`—so encrypted files remain compatible with standard passphrase-encrypted age tools. Obsidian automatically displays **AGE** at the right side of these filenames because it is the file extension; that label is not drawn by the plugin. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependency notices.
 
 Vault in Vault is desktop-only because opening and revealing `.ageconfig` uses Electron and desktop filesystem APIs. Mobile is not currently supported.
 
